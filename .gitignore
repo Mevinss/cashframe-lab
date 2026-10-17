@@ -5,7 +5,6 @@
 /runs/
 /uploads/
 /jobs/
-.env
 .env.*
 !.env.example
 *.mov
