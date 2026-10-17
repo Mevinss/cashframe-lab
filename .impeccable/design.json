@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T10:36:55.492201+00:00",
+  "title": "Design System: Проверка кассовых операций",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Bg",
+        "tonalRamp": [
+          "oklch(15% 0.0013 106.42)",
+          "oklch(26% 0.0013 106.42)",
+          "oklch(38% 0.0013 106.42)",
+          "oklch(49% 0.0013 106.42)",
+          "oklch(61% 0.0013 106.42)",
+          "oklch(72% 0.0013 106.42)",
+          "oklch(84% 0.0013 106.42)",
+          "oklch(95% 0.0013 106.42)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(26% 0.0000 89.88)",
+          "oklch(38% 0.0000 89.88)",
+          "oklch(49% 0.0000 89.88)",
+          "oklch(61% 0.0000 89.88)",
+          "oklch(72% 0.0000 89.88)",
+          "oklch(84% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0074 285.89)",
+          "oklch(26% 0.0074 285.89)",
+          "oklch(38% 0.0074 285.89)",
+          "oklch(49% 0.0074 285.89)",
+          "oklch(61% 0.0074 285.89)",
+          "oklch(72% 0.0074 285.89)",
+          "oklch(84% 0.0074 285.89)",
+          "oklch(95% 0.0074 285.89)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "oklch(15% 0.0112 299.03)",
+          "oklch(26% 0.0112 299.03)",
+          "oklch(38% 0.0112 299.03)",
+          "oklch(49% 0.0112 299.03)",
+          "oklch(61% 0.0112 299.03)",
+          "oklch(72% 0.0112 299.03)",
+          "oklch(84% 0.0112 299.03)",
+          "oklch(95% 0.0112 299.03)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "tonalRamp": [
+          "oklch(15% 0.0046 314.80)",
+          "oklch(26% 0.0046 314.80)",
+          "oklch(38% 0.0046 314.80)",
+          "oklch(49% 0.0046 314.80)",
+          "oklch(61% 0.0046 314.80)",
+          "oklch(72% 0.0046 314.80)",
+          "oklch(84% 0.0046 314.80)",
+          "oklch(95% 0.0046 314.80)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Accent",
+        "tonalRamp": [
+          "oklch(15% 0.1394 2.46)",
+          "oklch(26% 0.1394 2.46)",
+          "oklch(38% 0.1394 2.46)",
+          "oklch(49% 0.1394 2.46)",
+          "oklch(61% 0.1394 2.46)",
+          "oklch(72% 0.1394 2.46)",
+          "oklch(84% 0.1394 2.46)",
+          "oklch(95% 0.1394 2.46)"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Accent hover",
+        "tonalRamp": [
+          "oklch(15% 0.1149 1.40)",
+          "oklch(26% 0.1149 1.40)",
+          "oklch(38% 0.1149 1.40)",
+          "oklch(49% 0.1149 1.40)",
+          "oklch(61% 0.1149 1.40)",
+          "oklch(72% 0.1149 1.40)",
+          "oklch(84% 0.1149 1.40)",
+          "oklch(95% 0.1149 1.40)"
+        ]
+      },
+      "tint": {
+        "role": "primary",
+        "displayName": "Tint",
+        "tonalRamp": [
+          "oklch(15% 0.0120 350.97)",
+          "oklch(26% 0.0120 350.97)",
+          "oklch(38% 0.0120 350.97)",
+          "oklch(49% 0.0120 350.97)",
+          "oklch(61% 0.0120 350.97)",
+          "oklch(72% 0.0120 350.97)",
+          "oklch(84% 0.0120 350.97)",
+          "oklch(95% 0.0120 350.97)"
+        ]
+      },
+      "high": {
+        "role": "neutral",
+        "displayName": "High review priority",
+        "tonalRamp": [
+          "oklch(15% 0.1626 17.22)",
+          "oklch(26% 0.1626 17.22)",
+          "oklch(38% 0.1626 17.22)",
+          "oklch(49% 0.1626 17.22)",
+          "oklch(61% 0.1626 17.22)",
+          "oklch(72% 0.1626 17.22)",
+          "oklch(84% 0.1626 17.22)",
+          "oklch(95% 0.1626 17.22)"
+        ]
+      },
+      "high-bg": {
+        "role": "neutral",
+        "displayName": "High bg",
+        "tonalRamp": [
+          "oklch(15% 0.0164 8.16)",
+          "oklch(26% 0.0164 8.16)",
+          "oklch(38% 0.0164 8.16)",
+          "oklch(49% 0.0164 8.16)",
+          "oklch(61% 0.0164 8.16)",
+          "oklch(72% 0.0164 8.16)",
+          "oklch(84% 0.0164 8.16)",
+          "oklch(95% 0.0164 8.16)"
+        ]
+      },
+      "medium": {
+        "role": "neutral",
+        "displayName": "Medium review priority",
+        "tonalRamp": [
+          "oklch(15% 0.1054 70.85)",
+          "oklch(26% 0.1054 70.85)",
+          "oklch(38% 0.1054 70.85)",
+          "oklch(49% 0.1054 70.85)",
+          "oklch(61% 0.1054 70.85)",
+          "oklch(72% 0.1054 70.85)",
+          "oklch(84% 0.1054 70.85)",
+          "oklch(95% 0.1054 70.85)"
+        ]
+      },
+      "medium-bg": {
+        "role": "neutral",
+        "displayName": "Medium bg",
+        "tonalRamp": [
+          "oklch(15% 0.0308 86.46)",
+          "oklch(26% 0.0308 86.46)",
+          "oklch(38% 0.0308 86.46)",
+          "oklch(49% 0.0308 86.46)",
+          "oklch(61% 0.0308 86.46)",
+          "oklch(72% 0.0308 86.46)",
+          "oklch(84% 0.0308 86.46)",
+          "oklch(95% 0.0308 86.46)"
+        ]
+      },
+      "low": {
+        "role": "neutral",
+        "displayName": "Low review priority",
+        "tonalRamp": [
+          "oklch(15% 0.0851 241.82)",
+          "oklch(26% 0.0851 241.82)",
+          "oklch(38% 0.0851 241.82)",
+          "oklch(49% 0.0851 241.82)",
+          "oklch(61% 0.0851 241.82)",
+          "oklch(72% 0.0851 241.82)",
+          "oklch(84% 0.0851 241.82)",
+          "oklch(95% 0.0851 241.82)"
+        ]
+      },
+      "low-bg": {
+        "role": "neutral",
+        "displayName": "Low bg",
+        "tonalRamp": [
+          "oklch(15% 0.0117 239.90)",
+          "oklch(26% 0.0117 239.90)",
+          "oklch(38% 0.0117 239.90)",
+          "oklch(49% 0.0117 239.90)",
+          "oklch(61% 0.0117 239.90)",
+          "oklch(72% 0.0117 239.90)",
+          "oklch(84% 0.0117 239.90)",
+          "oklch(95% 0.0117 239.90)"
+        ]
+      },
+      "unspecified": {
+        "role": "neutral",
+        "displayName": "Unspecified",
+        "tonalRamp": [
+          "oklch(15% 0.0350 311.81)",
+          "oklch(26% 0.0350 311.81)",
+          "oklch(38% 0.0350 311.81)",
+          "oklch(49% 0.0350 311.81)",
+          "oklch(61% 0.0350 311.81)",
+          "oklch(72% 0.0350 311.81)",
+          "oklch(84% 0.0350 311.81)",
+          "oklch(95% 0.0350 311.81)"
+        ]
+      },
+      "unspecified-bg": {
+        "role": "neutral",
+        "displayName": "Unspecified bg",
+        "tonalRamp": [
+          "oklch(15% 0.0062 317.75)",
+          "oklch(26% 0.0062 317.75)",
+          "oklch(38% 0.0062 317.75)",
+          "oklch(49% 0.0062 317.75)",
+          "oklch(61% 0.0062 317.75)",
+          "oklch(72% 0.0062 317.75)",
+          "oklch(84% 0.0062 317.75)",
+          "oklch(95% 0.0062 317.75)"
+        ]
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "Field line",
+        "tonalRamp": [
+          "oklch(15% 0.0081 319.45)",
+          "oklch(26% 0.0081 319.45)",
+          "oklch(38% 0.0081 319.45)",
+          "oklch(49% 0.0081 319.45)",
+          "oklch(61% 0.0081 319.45)",
+          "oklch(72% 0.0081 319.45)",
+          "oklch(84% 0.0081 319.45)",
+          "oklch(95% 0.0081 319.45)"
+        ]
+      },
+      "secondary-hover": {
+        "role": "neutral",
+        "displayName": "Secondary hover",
+        "tonalRamp": [
+          "oklch(15% 0.0041 337.35)",
+          "oklch(26% 0.0041 337.35)",
+          "oklch(38% 0.0041 337.35)",
+          "oklch(49% 0.0041 337.35)",
+          "oklch(61% 0.0041 337.35)",
+          "oklch(72% 0.0041 337.35)",
+          "oklch(84% 0.0041 337.35)",
+          "oklch(95% 0.0041 337.35)"
+        ]
+      },
+      "selected-line": {
+        "role": "primary",
+        "displayName": "Selected line",
+        "tonalRamp": [
+          "oklch(15% 0.0583 351.37)",
+          "oklch(26% 0.0583 351.37)",
+          "oklch(38% 0.0583 351.37)",
+          "oklch(49% 0.0583 351.37)",
+          "oklch(61% 0.0583 351.37)",
+          "oklch(72% 0.0583 351.37)",
+          "oklch(84% 0.0583 351.37)",
+          "oklch(95% 0.0583 351.37)"
+        ]
+      },
+      "video-ground": {
+        "role": "neutral",
+        "displayName": "Video ground",
+        "tonalRamp": [
+          "oklch(15% 0.0097 276.66)",
+          "oklch(26% 0.0097 276.66)",
+          "oklch(38% 0.0097 276.66)",
+          "oklch(49% 0.0097 276.66)",
+          "oklch(61% 0.0097 276.66)",
+          "oklch(72% 0.0097 276.66)",
+          "oklch(84% 0.0097 276.66)",
+          "oklch(95% 0.0097 276.66)"
+        ]
+      },
+      "sampled": {
+        "role": "neutral",
+        "displayName": "Sampled",
+        "tonalRamp": [
+          "oklch(15% 0.0057 308.39)",
+          "oklch(26% 0.0057 308.39)",
+          "oklch(38% 0.0057 308.39)",
+          "oklch(49% 0.0057 308.39)",
+          "oklch(61% 0.0057 308.39)",
+          "oklch(72% 0.0057 308.39)",
+          "oklch(84% 0.0057 308.39)",
+          "oklch(95% 0.0057 308.39)"
+        ]
+      },
+      "sampled-line": {
+        "role": "neutral",
+        "displayName": "Sampled line",
+        "tonalRamp": [
+          "oklch(15% 0.0150 308.25)",
+          "oklch(26% 0.0150 308.25)",
+          "oklch(38% 0.0150 308.25)",
+          "oklch(49% 0.0150 308.25)",
+          "oklch(61% 0.0150 308.25)",
+          "oklch(72% 0.0150 308.25)",
+          "oklch(84% 0.0150 308.25)",
+          "oklch(95% 0.0150 308.25)"
+        ]
+      },
+      "incomplete": {
+        "role": "neutral",
+        "displayName": "Incomplete analysis",
+        "tonalRamp": [
+          "oklch(15% 0.0717 84.80)",
+          "oklch(26% 0.0717 84.80)",
+          "oklch(38% 0.0717 84.80)",
+          "oklch(49% 0.0717 84.80)",
+          "oklch(61% 0.0717 84.80)",
+          "oklch(72% 0.0717 84.80)",
+          "oklch(84% 0.0717 84.80)",
+          "oklch(95% 0.0717 84.80)"
+        ]
+      },
+      "unknown": {
+        "role": "neutral",
+        "displayName": "Unknown coverage",
+        "tonalRamp": [
+          "oklch(15% 0.0175 308.24)",
+          "oklch(26% 0.0175 308.24)",
+          "oklch(38% 0.0175 308.24)",
+          "oklch(49% 0.0175 308.24)",
+          "oklch(61% 0.0175 308.24)",
+          "oklch(72% 0.0175 308.24)",
+          "oklch(84% 0.0175 308.24)",
+          "oklch(95% 0.0175 308.24)"
+        ]
+      },
+      "unknown-line": {
+        "role": "neutral",
+        "displayName": "Unknown line",
+        "tonalRamp": [
+          "oklch(15% 0.0280 308.00)",
+          "oklch(26% 0.0280 308.00)",
+          "oklch(38% 0.0280 308.00)",
+          "oklch(49% 0.0280 308.00)",
+          "oklch(61% 0.0280 308.00)",
+          "oklch(72% 0.0280 308.00)",
+          "oklch(84% 0.0280 308.00)",
+          "oklch(95% 0.0280 308.00)"
+        ]
+      },
+      "event-marker": {
+        "role": "neutral",
+        "displayName": "Event marker",
+        "tonalRamp": [
+          "oklch(15% 0.0305 340.07)",
+          "oklch(26% 0.0305 340.07)",
+          "oklch(38% 0.0305 340.07)",
+          "oklch(49% 0.0305 340.07)",
+          "oklch(61% 0.0305 340.07)",
+          "oklch(72% 0.0305 340.07)",
+          "oklch(84% 0.0305 340.07)",
+          "oklch(95% 0.0305 340.07)"
+        ]
+      },
+      "selected-interval": {
+        "role": "primary",
+        "displayName": "Selected interval",
+        "tonalRamp": [
+          "oklch(15% 0.0555 348.19)",
+          "oklch(26% 0.0555 348.19)",
+          "oklch(38% 0.0555 348.19)",
+          "oklch(49% 0.0555 348.19)",
+          "oklch(61% 0.0555 348.19)",
+          "oklch(72% 0.0555 348.19)",
+          "oklch(84% 0.0555 348.19)",
+          "oklch(95% 0.0555 348.19)"
+        ]
+      },
+      "notice-bg": {
+        "role": "neutral",
+        "displayName": "Notice bg",
+        "tonalRamp": [
+          "oklch(15% 0.0132 5.80)",
+          "oklch(26% 0.0132 5.80)",
+          "oklch(38% 0.0132 5.80)",
+          "oklch(49% 0.0132 5.80)",
+          "oklch(61% 0.0132 5.80)",
+          "oklch(72% 0.0132 5.80)",
+          "oklch(84% 0.0132 5.80)",
+          "oklch(95% 0.0132 5.80)"
+        ]
+      },
+      "notice-line": {
+        "role": "neutral",
+        "displayName": "Notice line",
+        "tonalRamp": [
+          "oklch(15% 0.0498 2.27)",
+          "oklch(26% 0.0498 2.27)",
+          "oklch(38% 0.0498 2.27)",
+          "oklch(49% 0.0498 2.27)",
+          "oklch(61% 0.0498 2.27)",
+          "oklch(72% 0.0498 2.27)",
+          "oklch(84% 0.0498 2.27)",
+          "oklch(95% 0.0498 2.27)"
+        ]
+      },
+      "notice-text": {
+        "role": "neutral",
+        "displayName": "Error notice text",
+        "tonalRamp": [
+          "oklch(15% 0.1493 15.55)",
+          "oklch(26% 0.1493 15.55)",
+          "oklch(38% 0.1493 15.55)",
+          "oklch(49% 0.1493 15.55)",
+          "oklch(61% 0.1493 15.55)",
+          "oklch(72% 0.1493 15.55)",
+          "oklch(84% 0.1493 15.55)",
+          "oklch(95% 0.1493 15.55)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Functional page heading",
+        "purpose": "Upload heading; smaller variants support processing and result states."
+      },
+      "title": {
+        "displayName": "Section title",
+        "purpose": "Working panel and evidence headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default reading scale, reduced for supporting information."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Explicit field labels and compact controls."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Evidence timestamps, timeline legends and secondary notes."
+      }
+    },
+    "shadows": [
+      {
+        "name": "event-selection",
+        "value": "inset 0 0 0 1px #d3a6b9",
+        "purpose": "Selected event border; panels have no ambient shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "background-color .15s ease, border-color .15s ease",
+        "purpose": "Button state feedback."
+      },
+      {
+        "name": "activity",
+        "value": "activity 1.1s linear infinite",
+        "purpose": "Processing spinner rotates from 0 to 360deg; all animation and transitions are disabled for prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-upload",
+        "value": "1500px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1000px"
+      },
+      {
+        "name": "stacked",
+        "value": "720px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "description": "Main action with burgundy hover and a visible keyboard outline.",
+      "html": "<button class=\"ds-primary\">Начать проверку</button>",
+      "css": ".ds-primary{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:14px;padding:11px 20px;min-height:46px;border-radius:6px;font-weight:650;cursor:pointer;transition:background-color .15s ease,border-color .15s ease;color:white;background:var(--accent,#7b143e);border:1px solid var(--accent,#7b143e)}.ds-primary:hover:not(:disabled){background:var(--accent-hover,#601031)}.ds-primary:focus-visible{outline:2px solid var(--accent,#7b143e);outline-offset:4px;}.ds-primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none}}",
+      "refersTo": "button-primary"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "description": "A supporting action with a quiet outlined surface.",
+      "html": "<button class=\"ds-secondary\">Проверить другое видео</button>",
+      "css": ".ds-secondary{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:14px;padding:11px 20px;min-height:46px;border-radius:6px;font-weight:650;cursor:pointer;transition:background-color .15s ease,border-color .15s ease;color:var(--ink,#252529);background:var(--surface,#fff);border:1px solid #cfcbd0}.ds-secondary:hover{background:#f4f1f3}.ds-secondary:focus-visible{outline:2px solid var(--accent,#7b143e);outline-offset:4px;}.ds-secondary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-secondary{transition:none}}",
+      "refersTo": "button-secondary"
+    },
+    {
+      "name": "Labeled field",
+      "kind": "input",
+      "description": "Explicit label and native input; the access key remains session-only.",
+      "html": "<label class=\"ds-label\" for=\"ds-key\">Ключ доступа<input class=\"ds-field\" id=\"ds-key\" type=\"password\" placeholder=\"Введите ключ доступа\" autocomplete=\"off\"></label>",
+      "css": ".ds-label{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;display:block;color:var(--ink,#252529);font-weight:600}.ds-field{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;display:block;width:100%;min-height:44px;margin-top:7px;padding:11px 12px;border:1px solid #cfcbd0;border-radius:6px;background:var(--surface,#fff);color:var(--ink,#252529);caret-color:var(--accent,#7b143e)}.ds-field::placeholder{color:#757179;font-weight:400;opacity:1}.ds-field:focus-visible{outline:2px solid var(--accent,#7b143e);outline-offset:4px;}",
+      "refersTo": "field"
+    },
+    {
+      "name": "Workflow",
+      "kind": "nav",
+      "description": "Ordered current-step indicator; informational steps have no invented navigation behavior.",
+      "html": "<nav class=\"ds-workflow\" aria-label=\"Ход проверки\"><ol><li aria-current=\"step\">Загрузка</li><li>Обработка</li><li>Результат</li></ol></nav>",
+      "css": ".ds-workflow{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;}.ds-workflow ol{display:flex;gap:36px;list-style:none;padding:0;margin:0}.ds-workflow li{color:var(--muted,#65636a);padding-bottom:9px}.ds-workflow li[aria-current]{color:var(--accent,#7b143e);font-weight:650;border-bottom:2px solid var(--accent,#7b143e)}@media(max-width:720px){.ds-workflow ol{gap:30px}}"
+    },
+    {
+      "name": "Priority badges",
+      "kind": "chip",
+      "description": "Text stays present for every priority; unspecified is the default unresolved state.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge\">Приоритет не определён</span><span class=\"ds-badge ds-high\">Высокий</span><span class=\"ds-badge ds-medium\">Средний</span><span class=\"ds-badge ds-low\">Низкий</span></div>",
+      "css": ".ds-badges{display:flex;gap:8px;flex-wrap:wrap}.ds-badge{font-family:'Segoe UI',Arial,sans-serif;font-size:10px;font-weight:600;display:inline-block;padding:4px 8px;border-radius:4px;background:#f0edf1;color:#62566a}.ds-high{background:#fff0f2;color:var(--high,#a22238)}.ds-medium{background:#fff5df;color:var(--medium,#855400)}.ds-low{background:#edf5fb;color:var(--low,#245c82)}",
+      "refersTo": "badge-unspecified"
+    },
+    {
+      "name": "Working panel",
+      "kind": "card",
+      "description": "Flat bordered container; headings and helper text remain compact.",
+      "html": "<section class=\"ds-panel\"><h2>Что означает сигнал</h2><p>Сигнал модели требует проверки человеком.</p></section>",
+      "css": ".ds-panel{font-family:'Segoe UI',Arial,sans-serif;color:var(--ink,#252529);background:var(--surface,#fff);border:1px solid var(--line,#e3e1e4);border-radius:12px;padding:28px}.ds-panel h2{font-size:18px;font-weight:650;line-height:1.35;margin:0 0 12px}.ds-panel p{font-size:13px;line-height:1.55;color:var(--muted,#65636a);margin:0}",
+      "refersTo": "panel"
+    },
+    {
+      "name": "Selected event row",
+      "kind": "button",
+      "description": "Synthetic text sample of a selected event; actual timestamps and descriptions come from the analysis.",
+      "html": "<button class=\"ds-event\" aria-pressed=\"true\"><span class=\"ds-time\">0:24–0:28</span><strong>Сигнал для проверки</strong><span class=\"ds-event-badge\">Приоритет не определён</span></button>",
+      "css": ".ds-event{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;display:flex;flex-direction:column;align-items:start;gap:9px;width:100%;text-align:left;padding:20px 22px;border:0;border-bottom:1px solid var(--line,#e3e1e4);background:var(--surface,#fff);color:var(--ink,#252529);cursor:pointer;transition:background-color .15s ease}.ds-event:hover{background:#faf7f9}.ds-event[aria-pressed=true]{background:var(--tint,#f8eef2);box-shadow:inset 0 0 0 1px #d3a6b9}.ds-event:focus-visible{outline:2px solid var(--accent,#7b143e);outline-offset:4px;}.ds-event strong{font-size:13px;font-weight:600;line-height:1.5}.ds-time{font-size:12px;font-weight:650;color:var(--accent,#7b143e)}.ds-event-badge{font-size:10px;padding:4px 8px;border-radius:4px;font-weight:600;background:#f0edf1;color:#62566a}@media(prefers-reduced-motion:reduce){.ds-event{transition:none}}",
+      "refersTo": "event-selected"
+    },
+    {
+      "name": "Upload drop zone",
+      "kind": "custom",
+      "description": "Dashed upload boundary and native file chooser; rose marks drag-over.",
+      "html": "<div class=\"ds-drop\"><svg width=\"38\" height=\"38\" viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16 21V5m-6 6 6-6 6 6M5 21v6h22v-6\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><h2>Перетащите видео сюда</h2><p>или выберите файл на компьютере</p><label class=\"ds-file\">Выбрать видео<input type=\"file\" accept=\".mov,.mp4,video/quicktime,video/mp4\"></label><span class=\"ds-hint\">MOV / MP4 · до 100 МБ · до 3 минут</span></div>",
+      "css": ".ds-drop{font-family:'Segoe UI',Arial,sans-serif;min-height:292px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:#fcfbfc;border:1px dashed #bfb8bf;border-radius:8px;color:var(--ink,#252529)}.ds-drop>svg{color:var(--accent,#7b143e);margin-bottom:20px}.ds-drop h2{font-size:20px;line-height:1.35;font-weight:650;margin:0 0 4px}.ds-drop p{font-size:13px;color:var(--muted,#65636a);margin:0 0 18px}.ds-drop.ds-dragging{background:var(--tint,#f8eef2);border-color:var(--accent,#7b143e)}.ds-file{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;position:relative;display:inline-flex;align-items:center;justify-content:center;padding:9px 21px;border:1px solid #c6bec3;border-radius:6px;background:white;font-weight:600;overflow:hidden;cursor:pointer}.ds-file:focus-within{outline:2px solid var(--accent,#7b143e);outline-offset:4px;}.ds-file input{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}.ds-hint{font-size:12px;color:var(--muted,#65636a);margin-top:17px}"
+    },
+    {
+      "name": "Evidence timeline",
+      "kind": "custom",
+      "description": "Synthetic layout sample of sampled coverage, selected interval and a signal marker, with a labeled native seek control.",
+      "html": "<section class=\"ds-timeline-panel\"><div class=\"ds-timeline-top\"><h2>Хронология</h2><span>0:24 / 1:00</span></div><div class=\"ds-track\"><span class=\"ds-interval\"></span><span class=\"ds-playhead\"></span><button class=\"ds-marker\" aria-label=\"Сигнал на 24 секунде\"></button></div><input class=\"ds-seek\" type=\"range\" min=\"0\" max=\"60\" value=\"24\" aria-label=\"Положение на видео\"><p class=\"ds-timeline-note\">Выборочный анализ · Сигнал для проверки</p><p class=\"ds-timeline-note\">Между выборками и при ограниченной видимости возможны пропуски.</p></section>",
+      "css": ".ds-timeline-panel{font-family:'Segoe UI',Arial,sans-serif;background:var(--surface,#fff);color:var(--ink,#252529);border:1px solid var(--line,#e3e1e4);border-radius:0 0 10px 10px;padding:19px 24px 17px}.ds-timeline-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:19px}.ds-timeline-top h2{font-size:14px;margin:0}.ds-timeline-top span{font-size:12px;color:var(--muted,#65636a);font-variant-numeric:tabular-nums}.ds-track{height:18px;background:#e9e7eb;position:relative;border-radius:3px;border:1px dashed #beb9c3}.ds-interval{position:absolute;left:38%;width:10%;height:100%;background:#d6acc0;pointer-events:none}.ds-playhead{position:absolute;left:40%;top:-5px;width:2px;height:26px;background:var(--ink,#252529);pointer-events:none}.ds-marker{position:absolute;left:40%;top:-5px;width:10px;height:26px;border:0;border-radius:2px;background:#6f5c68;transform:translateX(-50%);cursor:pointer}.ds-marker:hover{background:var(--accent,#7b143e)}.ds-marker:focus-visible,.ds-seek:focus-visible{outline:2px solid var(--accent,#7b143e);outline-offset:4px;}.ds-seek{display:block;width:100%;margin:13px 0 9px;height:18px;accent-color:var(--accent,#7b143e)}.ds-timeline-note{font-size:11px;color:var(--muted,#65636a);margin:9px 0 0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Evidence Workbench",
+    "overview": "This is a restrained banking work surface: a light neutral ground, white bordered surfaces, graphite text and burgundy actions. The approved Forte-inspired direction supplies palette and material character; it does not imply an official bank identity. The Russian functional title identifies the task without introducing a product brand, logo or slogan.\n\nVideo, source timestamps and original evidence carry the visual weight. The interface supplies clear grouping and quiet controls so reviewers can inspect a signal and record what they observed. Research limitations are product facts, not aesthetic claims: event types, regulatory matches and guaranteed safety must never be suggested by visual polish or reassuring color.",
+    "keyCharacteristics": [
+      "Light neutral canvas and white, thinly bordered panels.",
+      "Burgundy reserved for actions, focus and selection.",
+      "Compact system typography with moderate corners.",
+      "Source media foregrounded; no generated imagery or decorative charts.",
+      "Explicit text labels for state, priority and uncertainty."
+    ],
+    "rules": [
+      {
+        "name": "The Evidence Before Color Rule",
+        "body": "Color communicates interface state and review priority; it never certifies an event, legal conclusion or safe interval.",
+        "section": "colors"
+      },
+      {
+        "name": "The Functional Heading Rule",
+        "body": "Headings name the current task or evidence; do not add campaign typography, slogans or a marketing hero.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Surface Rule",
+        "body": "Use borders and tonal separation for working panels; reserve the existing inset selection stroke and dialog backdrop for state.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use the extracted system stack, neutral canvas, white bordered panels and burgundy action states.",
+      "Do keep the original video and evidence visually prominent and preserve uncropped source media.",
+      "Do pair every priority and coverage color with explanatory text, and preserve unspecified states.",
+      "Do use visible keyboard focus, native controls and reduced-motion behavior.",
+      "Do stack the workspace at the implemented narrow-screen breakpoint while retaining timestamps and evidence access."
+    ],
+    "donts": [
+      "Don't invent a product name, logo, slogan, marketing hero or decorative chart.",
+      "Don't generate or alter evidence imagery or add unsupported boxes, trajectories or detections.",
+      "Don't use green reassurance, priority badges or polished presentation to imply guaranteed safety or a legal verdict.",
+      "Don't display fabricated progress or uncalibrated confidence percentages.",
+      "Don't imply confirmed event types, regulatory matches or generalization performance when the product evidence does not establish them."
+    ]
+  }
+}

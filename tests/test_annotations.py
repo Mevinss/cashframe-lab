@@ -30,3 +30,9 @@ class AnnotationTests(unittest.TestCase):
     def test_verified_rule_without_automatic_match_is_not_auto_selected(self):
         rule={'id':'r','verified':True,'applicability':'cash receipt','visual_cues':['test'], 'automatic_matching_enabled':False}
         self.assertIsNone(resolve_rule('r',[rule]))
+
+    def test_null_fields_cannot_confirm_an_annotation(self):
+        item={'start_sec':0,'end_sec':1,'confirmed':True,'origin':'human','reviewer':None,'observed_fact':None,'type':None,'rule_status':'unresolved'}
+        with self.assertRaises(ValueError):validate_annotation(item,10)
+        item.update(reviewer='test',observed_fact='fact',type='test',confirmed='false')
+        with self.assertRaises(ValueError):validate_annotation(item,10)

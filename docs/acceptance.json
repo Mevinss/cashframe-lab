@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-17",
+  "tests": 35,
+  "failures": 0,
+  "api_client_wall_sec": 138.511,
+  "api_contract_valid": true,
+  "jpeg_valid": true,
+  "longest_duration_sec": 142.533021,
+  "direct_analysis_sec": 132.236,
+  "api_analysis_sec": 135.723,
+  "rss_mb": 342.9,
+  "outgoing_network_blocked": true,
+  "training_windows": 1101,
+  "positive_windows": 39,
+  "initial_loss": 0.6937231802691656,
+  "final_loss": 0.059996402322063665,
+  "external_deployment": false,
+  "taxonomy_confirmed": false,
+  "final_version_smoke_wall_sec": 44.1,
+  "final_version_smoke_contract_valid": true,
+  "final_version_smoke_events": 2
+}

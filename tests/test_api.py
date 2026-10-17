@@ -61,6 +61,7 @@ class ApiTests(unittest.TestCase):
         with TestClient(create_app(self.settings,analyzer=lambda *a:({},{}))) as client:
             self.assertEqual(self.post(client,'bad.exe').status_code,415)
             self.assertEqual(self.post(client,data=b'invalid MOV').status_code,422)
+            self.assertEqual(client.post('/api/v1/analyze',headers=self.headers,content=b'not multipart').status_code,422)
 
     def test_analysis_error_never_negative_verdict(self):
         def fail(*args):raise RuntimeError('sensitive internal path')
@@ -106,9 +107,9 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(client.get('/health/ready').status_code,503)
 
     def test_expired_job_deadline_is_failed(self):
-        self.settings.deadline_sec=.001
+        self.settings.deadline_sec=.3
         def slow(*args):
-            time.sleep(.02)
+            time.sleep(.35)
             return {'verdict':'no_violation','violations':[]},{}
         with TestClient(create_app(self.settings,analyzer=slow)) as client:
             jid=self.post(client).json()['job_id']
@@ -127,3 +128,15 @@ class ApiTests(unittest.TestCase):
             saved=json.loads((self.settings.local/'annotations/confirmed.jsonl').read_text(encoding='utf-8').splitlines()[0])
             self.assertFalse(saved['training_eligible'])
             self.assertEqual(len(saved['source_sha256']),64)
+
+    def test_retention_cleans_without_restart(self):
+        self.settings.retention_hours=.00005
+        def analyze(*args):return {'verdict':'no_violation','violations':[]},{'events':[]}
+        with TestClient(create_app(self.settings,analyzer=analyze)) as client:
+            jid=self.post(client).json()['job_id'];self.wait(client,jid)
+            folder=self.settings.local/'jobs'/jid
+            for _ in range(40):
+                if not folder.exists():break
+                time.sleep(.025)
+            self.assertFalse(folder.exists())
+            self.assertEqual(client.get('/api/v1/jobs/'+jid,headers=self.headers).status_code,404)

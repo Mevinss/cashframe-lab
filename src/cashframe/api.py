@@ -11,6 +11,7 @@ from fastapi import Depends,FastAPI,HTTPException,Request
 from fastapi.responses import FileResponse,JSONResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
+from starlette.formparsers import MultiPartException,MultiPartParser
 
 from .annotations import validate_annotation
 from .config import Settings,ROOT
@@ -50,13 +51,22 @@ def create_app(settings=None,analyzer=None):
             target=jobs_dir/jid
             if target.resolve().parent!=jobs_dir.resolve():raise ValueError('Unsafe cleanup path')
             shutil.rmtree(target,ignore_errors=True)
-            store.delete(jid)
+            if not target.exists():store.delete(jid)
 
     @asynccontextmanager
     async def lifespan(app):
         store.recover();cleanup()
-        yield
-        worker.shutdown()
+        async def sweep():
+            while True:
+                await asyncio.sleep(min(60,max(.05,settings.retention_hours*3600/2)))
+                cleanup()
+        task=asyncio.create_task(sweep())
+        try:yield
+        finally:
+            task.cancel()
+            try:await task
+            except asyncio.CancelledError:pass
+            worker.shutdown()
 
     app=FastAPI(title='Локальная проверка видео',lifespan=lifespan)
     app.add_middleware(LimitBody,limit=settings.max_upload_bytes+1024*1024)
@@ -67,6 +77,9 @@ def create_app(settings=None,analyzer=None):
     def get_job(jid):
         job=store.get(jid)
         if not job:raise HTTPException(404,'Задание не найдено.')
+        if job['status']!='processing' and time.time()-job['created_at']>settings.retention_hours*3600:
+            cleanup()
+            raise HTTPException(404,'Срок хранения задания истёк.')
         return job
     def ready():
         if not settings.api_key:return False
@@ -87,9 +100,32 @@ def create_app(settings=None,analyzer=None):
         accepted_at=time.monotonic()
         if not ready():raise HTTPException(503,'Модель не подготовлена. Выполните команды подготовки и обучения.')
         if not worker.reserve():raise HTTPException(429,'Сервис занят. Повторите запрос после завершения текущего видео.',headers={'Retry-After':'10'})
-        job_id=None;started=False;upload=None
+        job_id=None;started=False;upload=None;form=None
         try:
-            form=await request.form(max_files=1,max_fields=1)
+            if not request.headers.get('content-type','').lower().startswith('multipart/form-data'):
+                raise HTTPException(422,'Нужно multipart-поле file.')
+            async def upload_stream():
+                source=request.stream().__aiter__()
+                while True:
+                    remaining=settings.deadline_sec-(time.monotonic()-accepted_at)
+                    if remaining<=0:raise MultiPartException('upload_deadline')
+                    try:chunk=await asyncio.wait_for(anext(source),timeout=remaining)
+                    except StopAsyncIteration:return
+                    except asyncio.TimeoutError as exc:raise MultiPartException('upload_deadline') from exc
+                    except UploadTooLarge as exc:raise MultiPartException('upload_size') from exc
+                    yield chunk
+            try:
+                parser=MultiPartParser(request.headers,upload_stream(),max_files=1,max_fields=1)
+                try:form=await parser.parse()
+                except BaseException:
+                    # Starlette 0.48 only closes partial files on MultiPartException;
+                    # also close them on disconnect/cancellation before propagating.
+                    for handle in parser._files_to_close_on_error:handle.close()
+                    raise
+            except MultiPartException as exc:
+                if exc.message=='upload_deadline':raise HTTPException(408,'Загрузка превысила лимит времени. Повторите запрос.') from exc
+                if exc.message=='upload_size':raise HTTPException(413,'Файл превышает допустимый размер.') from exc
+                raise HTTPException(422,'Некорректный multipart-запрос.') from exc
             upload=form.get('file')
             if not upload or not hasattr(upload,'filename'):raise HTTPException(422,'Нужно multipart-поле file.')
             if Path(upload.filename or '').suffix.lower() not in ('.mov','.mp4'):raise HTTPException(415,'Поддерживаются MOV и MP4.')
@@ -98,6 +134,7 @@ def create_app(settings=None,analyzer=None):
             count=0
             with path.open('wb') as target:
                 while chunk:=await upload.read(1024*1024):
+                    if time.monotonic()-accepted_at>settings.deadline_sec:raise HTTPException(408,'Загрузка превысила лимит времени.')
                     count+=len(chunk)
                     if count>settings.max_upload_bytes:raise HTTPException(413,'Файл превышает допустимый размер.')
                     target.write(chunk)
@@ -106,11 +143,12 @@ def create_app(settings=None,analyzer=None):
                 raise HTTPException(422,'Не удалось прочитать видеофайл.') from exc
             if info.duration_sec>settings.max_duration_sec:raise HTTPException(422,'Видео слишком длинное для текущего лимита обработки.')
             digest=await asyncio.to_thread(sha256_file,path)
+            if time.monotonic()-accepted_at>settings.deadline_sec:raise HTTPException(408,'Подготовка видео превысила лимит времени.')
             store.update(job_id,filename=Path(upload.filename).name,duration_sec=info.duration_sec,source_sha256=digest)
             worker.start(job_id,path,accepted_at);started=True
             return {'job_id':job_id}
         finally:
-            if upload and hasattr(upload,'close'):await upload.close()
+            if form is not None:await form.close()
             if not started:
                 worker.release()
                 if job_id:

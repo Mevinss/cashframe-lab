@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -15,8 +16,11 @@ class Worker:
         self.settings,self.store,self.analyzer=settings,store,analyzer
         self.slot=threading.BoundedSemaphore(1)
         self.threads=[]
+        self.stopping=threading.Event()
+        self.process_lock=threading.Lock()
+        self.processes=set()
 
-    def reserve(self):return self.slot.acquire(blocking=False)
+    def reserve(self):return not self.stopping.is_set() and self.slot.acquire(blocking=False)
 
     def release(self):self.slot.release()
 
@@ -29,6 +33,7 @@ class Worker:
         work=path.parent
         def stage(value):self.store.update(jid,stage=value)
         try:
+            if self.stopping.is_set():raise RuntimeError('service_stopping')
             if self.analyzer:
                 result,review=self.analyzer(path,work,stage)
             else:
@@ -36,9 +41,12 @@ class Worker:
                 command=[sys.executable,'-m','cashframe.cli','analyze','--input',str(path),'--output',str(work),
                          '--model',str(self.settings.model_dir),'--encoder',str(self.settings.local/'encoder')]
                 with (work/'worker.log').open('wb') as log:
-                    child=subprocess.Popen(command,stdout=log,stderr=log,env=environment)
+                    options={'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {'start_new_session':True}
+                    child=subprocess.Popen(command,stdout=log,stderr=log,env=environment,**options)
+                    with self.process_lock:self.processes.add(child)
                     try:
                         while child.poll() is None:
+                            if self.stopping.is_set():raise RuntimeError('service_stopping')
                             if time.monotonic()-accepted_at>self.settings.deadline_sec:
                                 raise TimeoutError('processing_deadline')
                             try:
@@ -47,23 +55,33 @@ class Worker:
                             time.sleep(.2)
                         if child.returncode:raise RuntimeError('analyzer_failed')
                     finally:
-                        if child.poll() is None:
-                            if os.name=='nt':
-                                subprocess.run(['taskkill','/PID',str(child.pid),'/T','/F'],capture_output=True)
-                            else:
-                                child.kill()
-                            child.wait(timeout=10)
+                        self.terminate(child)
+                        with self.process_lock:self.processes.discard(child)
                 result,review=read_json(work/'result.json'),read_json(work/'review.json')
+            if self.stopping.is_set():raise RuntimeError('service_stopping')
             if time.monotonic()-accepted_at>self.settings.deadline_sec:
                 raise TimeoutError('processing_deadline')
             validated=CompletedResult(job_id=jid,**result).model_dump()
             self.store.update(jid,status='done',stage='done',result=validated,review=review,
                               elapsed_sec=round(time.monotonic()-accepted_at,3))
         except Exception as exc:
-            code='processing_deadline' if isinstance(exc,TimeoutError) else 'analysis_failed'
+            code='service_restarted' if self.stopping.is_set() else 'processing_deadline' if isinstance(exc,TimeoutError) else 'analysis_failed'
             self.store.update(jid,status='failed',stage='failed',error=code)
         finally:
             self.release()
 
     def shutdown(self):
+        self.stopping.set()
+        with self.process_lock:children=list(self.processes)
+        for child in children:self.terminate(child)
         for thread in self.threads:thread.join(timeout=3)
+
+    @staticmethod
+    def terminate(child):
+        if child.poll() is None:
+            if os.name=='nt':
+                subprocess.run(['taskkill','/PID',str(child.pid),'/T','/F'],capture_output=True,timeout=10)
+            else:
+                try:os.killpg(child.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+            child.wait(timeout=10)
