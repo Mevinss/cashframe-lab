@@ -28,4 +28,5 @@ node_modules/
 dist/
 coverage/
 .superpowers/
+.impeccable/review/
 

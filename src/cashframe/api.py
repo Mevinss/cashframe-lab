@@ -4,6 +4,7 @@ import asyncio
 import hmac
 import json
 import shutil
+import threading
 import time
 
 from fastapi import Depends,FastAPI,HTTPException,Request
@@ -13,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .annotations import validate_annotation
 from .config import Settings,ROOT
-from .data import read_json,write_json
+from .data import read_json,write_json,sha256_file
 from .storage import JobStore
 from .video import probe_video
 from .worker import Worker
@@ -41,6 +42,7 @@ def create_app(settings=None,analyzer=None):
     settings=settings or Settings()
     store=JobStore(settings.local/'jobs.sqlite')
     worker=Worker(settings,store,analyzer)
+    annotation_lock=threading.Lock()
     jobs_dir=settings.local/'jobs';jobs_dir.mkdir(parents=True,exist_ok=True)
 
     def cleanup():
@@ -103,7 +105,8 @@ def create_app(settings=None,analyzer=None):
             except Exception as exc:
                 raise HTTPException(422,'Не удалось прочитать видеофайл.') from exc
             if info.duration_sec>settings.max_duration_sec:raise HTTPException(422,'Видео слишком длинное для текущего лимита обработки.')
-            store.update(job_id,filename=Path(upload.filename).name,duration_sec=info.duration_sec)
+            digest=await asyncio.to_thread(sha256_file,path)
+            store.update(job_id,filename=Path(upload.filename).name,duration_sec=info.duration_sec,source_sha256=digest)
             worker.start(job_id,path,accepted_at);started=True
             return {'job_id':job_id}
         finally:
@@ -142,8 +145,16 @@ def create_app(settings=None,analyzer=None):
         except (ValueError,KeyError,TypeError):raise HTTPException(422,'Проверьте интервал, наблюдаемый факт и автора подтверждения.')
         if item.get('rule_id') and not any(r['id']==item['rule_id'] and r.get('verified') for r in read_json(ROOT/'config/rules.json')['rules']):
             raise HTTPException(422,'Правило отсутствует в проверенном реестре.')
-        destination=jobs_dir/job_id/'confirmed-annotations.jsonl' if item.get('confirmed') else jobs_dir/job_id/'proposed-annotations.jsonl'
-        with destination.open('a',encoding='utf-8') as stream:stream.write(json.dumps(item,ensure_ascii=False)+'\n')
+        partition='external'
+        try:
+            splits=read_json(settings.local/'dataset/split.json')
+            partition=next((name for name,ids in splits.items() if job['source_sha256'] in ids),'external')
+        except OSError:pass
+        item.update(job_id=job_id,source_sha256=job['source_sha256'],source_partition=partition,training_eligible=partition=='train')
+        destination=settings.local/'annotations'/('confirmed.jsonl' if item.get('confirmed') else 'proposed.jsonl')
+        destination.parent.mkdir(parents=True,exist_ok=True)
+        with annotation_lock:
+            with destination.open('a',encoding='utf-8') as stream:stream.write(json.dumps(item,ensure_ascii=False)+'\n')
         return {'saved':True,'confirmed':bool(item.get('confirmed'))}
 
     @app.get('/')

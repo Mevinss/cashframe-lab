@@ -114,3 +114,16 @@ class ApiTests(unittest.TestCase):
             jid=self.post(client).json()['job_id']
             result=self.wait(client,jid)
             self.assertEqual(result,{'job_id':jid,'status':'failed','error':'processing_deadline'})
+
+    def test_confirmed_annotations_are_persistent_and_not_training_inputs(self):
+        def analyze(*args):return {'verdict':'no_violation','violations':[]},{'events':[]}
+        with TestClient(create_app(self.settings,analyzer=analyze)) as client:
+            jid=self.post(client).json()['job_id'];self.wait(client,jid)
+            item={'start_sec':0,'end_sec':.5,'confirmed':True,'origin':'human','reviewer':'test',
+                  'observed_fact':'Synthetic colors','type':'fixture','rule_id':None,'rule_status':'unresolved','training_eligible':True}
+            response=client.post(f'/api/v1/jobs/{jid}/annotations',headers=self.headers,json=item)
+            self.assertEqual(response.status_code,200)
+            import json
+            saved=json.loads((self.settings.local/'annotations/confirmed.jsonl').read_text(encoding='utf-8').splitlines()[0])
+            self.assertFalse(saved['training_eligible'])
+            self.assertEqual(len(saved['source_sha256']),64)

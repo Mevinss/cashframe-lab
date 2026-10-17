@@ -23,7 +23,7 @@ def probe_video(path):
     try:
         result = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_format', '-show_streams', '-show_packets',
                                  '-show_entries', 'format=duration:stream=codec_type,codec_name,width,height,start_time,duration:packet=pts_time,duration_time',
-                                 '-of', 'json', str(path)], capture_output=True, timeout=30, check=True)
+                                 '-of', 'json', '-protocol_whitelist', 'file,pipe', str(path)], capture_output=True, timeout=30, check=True)
         info = json.loads(result.stdout)
         stream = next(s for s in info['streams'] if s['codec_type'] == 'video')
         start = float(stream.get('start_time', 0))
@@ -39,13 +39,13 @@ def probe_video(path):
 
 def validate_decode(path, timeout=180):
     probe_video(path)
-    result = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-i', str(path), '-map', '0:v:0', '-f', 'null', '-'], capture_output=True, timeout=timeout)
+    result = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-map', '0:v:0', '-f', 'null', '-'], capture_output=True, timeout=timeout)
     if result.returncode or result.stderr.strip():
         raise ValueError('Video is damaged or cannot be fully decoded')
 
 
 def frame_times(path):
-    result = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'frame=best_effort_timestamp_time', '-of', 'csv=p=0', str(path)], capture_output=True, text=True, timeout=90, check=True)
+    result = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'frame=best_effort_timestamp_time', '-of', 'csv=p=0', '-protocol_whitelist', 'file,pipe', str(path)], capture_output=True, text=True, timeout=90, check=True)
     times = []
     for line in result.stdout.splitlines():
         first = line.split(',')[0].strip()
@@ -70,7 +70,7 @@ def iter_samples(path, sample_fps=4., size=224):
             selected.append(timestamp - times[0])
             previous = timestamp
     select = f"select=isnan(prev_selected_t)+gte(t-prev_selected_t\\,{period}),scale={size}:{size}"
-    command = ['ffmpeg', '-nostdin', '-v', 'error', '-copyts', '-threads', '1', '-i', str(path), '-an', '-vf', select,
+    command = ['ffmpeg', '-nostdin', '-v', 'error', '-copyts', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-an', '-vf', select,
                '-fps_mode', 'vfr', '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:1']
     with tempfile.TemporaryFile() as error_log:
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=error_log)
@@ -99,7 +99,7 @@ def iter_samples(path, sample_fps=4., size=224):
 def evidence_frame(path, timestamp_sec):
     times = frame_times(path)
     index = min(len(times) - 1, bisect_left(times, times[0] + max(0, timestamp_sec)))
-    command = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-i', str(path), '-an',
+    command = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-an',
                '-vf', f'select=eq(n\\,{index})', '-frames:v', '1', '-q:v', '2', '-f', 'image2pipe', '-vcodec', 'mjpeg', 'pipe:1']
     result = subprocess.run(command, capture_output=True, timeout=45, check=True)
     if not result.stdout.startswith(b'\xff\xd8'):
@@ -109,7 +109,7 @@ def evidence_frame(path, timestamp_sec):
 
 def browser_copy(path, output):
     output = Path(output)
-    subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-i', str(path), '-map', '0:v:0', '-an',
+    subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-map', '0:v:0', '-an',
                     '-vf', 'setpts=PTS-STARTPTS', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-threads', '1',
                     '-movflags', '+faststart', '-y', str(output)], capture_output=True, check=True, timeout=90)
     return output
