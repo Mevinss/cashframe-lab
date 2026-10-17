@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "videos": [
+    {
+      "duration_sec": 20,
+      "independent_review": true,
+      "events_complete": true,
+      "video_positive": true,
+      "ground_truth": [
+        {"confirmed": true, "origin": "human", "start_sec": 2, "end_sec": 4, "timecode_sec": 3}
+      ],
+      "predictions": [
+        {
+          "start_sec": 2.25,
+          "end_sec": 4.25,
+          "timecode_sec": 3.25,
+          "localization_status": "model_proposal",
+          "evidence_frames": [{"timestamp_sec": 1.5}, {"timestamp_sec": 3.25}, {"timestamp_sec": 4.5}]
+        }
+      ]
+    },
+    {
+      "duration_sec": 10,
+      "independent_review": true,
+      "events_complete": true,
+      "video_positive": false,
+      "ground_truth": [],
+      "predictions": []
+    }
+  ]
+}

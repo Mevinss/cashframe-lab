@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" fill="none">
+ <title>Синтетический абстрактный макет, не видеокадр</title>
+ <defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" stroke="#595363" stroke-width=".6"/></pattern><linearGradient id="shade" x2="1" y2="1"><stop stop-color="#37323e"/><stop offset="1" stop-color="#23242d"/></linearGradient></defs>
+ <path fill="url(#shade)" d="M0 0h800v450H0z"/><path fill="url(#grid)" d="M0 0h800v450H0z"/>
+ <rect x="100" y="88" width="600" height="274" rx="8" stroke="#89768b" stroke-dasharray="6 9"/>
+ <path d="M100 113V88h25m550 0h25v25m0 224v25h-25m-550 0h-25v-25" stroke="#b98da5" stroke-width="2"/>
+ <rect x="143" y="126" width="105" height="76" rx="4" stroke="#635b6c"/><rect x="558" y="250" width="97" height="73" rx="4" stroke="#635b6c"/>
+ <circle cx="612" cy="163" r="25" stroke="#635b6c"/><path d="M143 296h90m-90 12h65m322-162h-55m-5 0h-12" stroke="#635b6c"/>
+</svg>
