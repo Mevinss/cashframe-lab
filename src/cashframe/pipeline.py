@@ -5,9 +5,19 @@ import numpy as np
 
 from .data import read_json,write_json
 from .events import merge_events
-from .features import Encoder,extract_features
-from .learning import load_model,model_scores,window_features
-from .video import browser_copy,evidence_frame,probe_video,validate_decode
+from .features import Encoder,extract_features,FeatureSequence
+from .learning import load_model,model_scores,window_features,video_score
+from .video import browser_copy,evidence_frame,probe_video,validate_decode,iter_samples
+
+
+def refine_features(base,samples,encoder,events):
+    rows={round(float(t),6):(float(t),v) for t,v in zip(base.times,base.values)}
+    for timestamp,frame in samples:
+        if any(e['start_sec']<=timestamp<=e['end_sec'] for e in events):
+            key=round(float(timestamp),6)
+            if key not in rows:rows[key]=(timestamp,encoder.encode(frame))
+    ordered=sorted(rows.values(),key=lambda r:r[0])
+    return FeatureSequence(np.array([r[0] for r in ordered]),np.stack([r[1] for r in ordered]),base.wall_sec)
 
 
 def block_outgoing_network():
@@ -36,7 +46,19 @@ def analyze_video(path,model_dir,work_dir,stage_callback=lambda s:None,encoder_d
     stage_callback('scoring_windows')
     centers,windows=window_features(sequence.times,sequence.values,info.duration_sec)
     scores=model_scores(model,windows)
-    events=merge_events(centers,scores,threshold,info.duration_sec)
+    event_threshold=config.get('event_threshold',threshold) if config['selected_variant']=='trained' else threshold
+    positive=video_score(model,windows)>=threshold
+    events=merge_events(centers,scores,event_threshold,info.duration_sec) if positive else []
+    if positive and not events:
+        peak=int(np.argmax(scores))
+        events=merge_events(centers,scores,float(scores[peak]),info.duration_sec)
+    if events:
+        stage_callback('refining_intervals')
+        sequence=refine_features(sequence,iter_samples(path,8.,encoder.config['input_size']),encoder,events)
+        centers,windows=window_features(sequence.times,sequence.values,info.duration_sec)
+        scores=model_scores(model,windows)
+        refined_events=merge_events(centers,scores,event_threshold,info.duration_sec)
+        if refined_events:events=refined_events
     stage_callback('evidence')
     violations=[]
     for event in events:
@@ -45,7 +67,7 @@ def analyze_video(path,model_dir,work_dir,stage_callback=lambda s:None,encoder_d
         for timestamp in [max(0,point-1),point,min(info.duration_sec-.05,point+1)]:
             frame=evidence_frame(path,timestamp)
             if not any(f['timestamp_sec']==frame['timestamp_sec'] for f in evidence):evidence.append(frame)
-        event['timecode_sec']=evidence[min(1,len(evidence)-1)]['timestamp_sec']
+        event['timecode_sec']=min(evidence,key=lambda f:abs(f['timestamp_sec']-point))['timestamp_sec']
         violations.append({k:event[k] for k in ('type','timecode_sec','description')}|{'evidence_frames':evidence})
     stage_callback('preparing_video')
     browser_copy(path,work_dir/'preview.mp4')

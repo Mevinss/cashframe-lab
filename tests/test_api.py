@@ -95,3 +95,22 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(store.get(jid)['status'],'processing')
         store.recover()
         self.assertEqual(store.get(jid)['status'],'failed')
+
+    def test_model_config_without_classifier_is_not_ready(self):
+        self.settings.model_dir.mkdir(parents=True)
+        (self.settings.model_dir/'config.json').write_text('{"selected_variant":"trained"}')
+        encoder=self.settings.local/'encoder';encoder.mkdir()
+        (encoder/'encoder.json').write_text('{}')
+        (encoder/'weights.pth').write_bytes(b'incomplete')
+        with TestClient(create_app(self.settings)) as client:
+            self.assertEqual(client.get('/health/ready').status_code,503)
+
+    def test_expired_job_deadline_is_failed(self):
+        self.settings.deadline_sec=.001
+        def slow(*args):
+            time.sleep(.02)
+            return {'verdict':'no_violation','violations':[]},{}
+        with TestClient(create_app(self.settings,analyzer=slow)) as client:
+            jid=self.post(client).json()['job_id']
+            result=self.wait(client,jid)
+            self.assertEqual(result,{'job_id':jid,'status':'failed','error':'processing_deadline'})

@@ -67,7 +67,14 @@ def create_app(settings=None,analyzer=None):
         if not job:raise HTTPException(404,'Задание не найдено.')
         return job
     def ready():
-        return bool(settings.api_key) and (analyzer is not None or all(p.exists() for p in [settings.model_dir/'config.json',settings.local/'encoder/encoder.json',settings.local/'encoder/weights.pth']))
+        if not settings.api_key:return False
+        if analyzer is not None:return True
+        try:
+            config=read_json(settings.model_dir/'config.json')
+            selected=config['selected_variant']
+            if selected not in ('trained','baseline'):return False
+            return all(p.is_file() for p in [settings.model_dir/f'{selected}.npz',settings.local/'encoder/encoder.json',settings.local/'encoder/weights.pth'])
+        except (OSError,ValueError,KeyError):return False
 
     @app.get('/health/ready')
     def health():
@@ -93,8 +100,7 @@ def create_app(settings=None,analyzer=None):
                     if count>settings.max_upload_bytes:raise HTTPException(413,'Файл превышает допустимый размер.')
                     target.write(chunk)
             try:info=await asyncio.to_thread(probe_video,path)
-            except (ValueError,Exception) as exc:
-                if isinstance(exc,HTTPException):raise
+            except Exception as exc:
                 raise HTTPException(422,'Не удалось прочитать видеофайл.') from exc
             if info.duration_sec>settings.max_duration_sec:raise HTTPException(422,'Видео слишком длинное для текущего лимита обработки.')
             store.update(job_id,filename=Path(upload.filename).name,duration_sec=info.duration_sec)
@@ -134,6 +140,8 @@ def create_app(settings=None,analyzer=None):
         job=get_job(job_id)
         try:item=validate_annotation(await request.json(),job['duration_sec'])
         except (ValueError,KeyError,TypeError):raise HTTPException(422,'Проверьте интервал, наблюдаемый факт и автора подтверждения.')
+        if item.get('rule_id') and not any(r['id']==item['rule_id'] and r.get('verified') for r in read_json(ROOT/'config/rules.json')['rules']):
+            raise HTTPException(422,'Правило отсутствует в проверенном реестре.')
         destination=jobs_dir/job_id/'confirmed-annotations.jsonl' if item.get('confirmed') else jobs_dir/job_id/'proposed-annotations.jsonl'
         with destination.open('a',encoding='utf-8') as stream:stream.write(json.dumps(item,ensure_ascii=False)+'\n')
         return {'saved':True,'confirmed':bool(item.get('confirmed'))}

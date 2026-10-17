@@ -26,3 +26,7 @@ class AnnotationTests(unittest.TestCase):
             priority, reason = assign_priority({'score':score,'confirmed':False}, {})
             self.assertEqual(priority,'unspecified')
             self.assertTrue(reason)
+
+    def test_verified_rule_without_automatic_match_is_not_auto_selected(self):
+        rule={'id':'r','verified':True,'applicability':'cash receipt','visual_cues':['test'], 'automatic_matching_enabled':False}
+        self.assertIsNone(resolve_rule('r',[rule]))

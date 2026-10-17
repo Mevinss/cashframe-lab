@@ -7,7 +7,7 @@ name = "cashframe-lab"
 version = "0.1.0"
 description = "Local video review research and evidence workflow"
 requires-python = ">=3.11"
-dependencies = ["numpy==2.4.2", "Pillow==12.3.0", "psutil==7.2.2", "scikit-learn==1.8.0"]
+dependencies = ["numpy==2.4.2", "Pillow==12.3.0", "psutil==7.2.2", "fastapi==0.119.0", "uvicorn==0.37.0", "python-multipart==0.0.20", "pydantic==2.14.1"]
 
 [project.scripts]
 cashframe = "cashframe.cli:main"

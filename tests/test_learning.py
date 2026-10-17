@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from cashframe.learning import supervised_mask, select_threshold, window_features
+from cashframe.learning import supervised_mask, select_threshold, window_features, video_features
 from cashframe.events import merge_events
 
 
@@ -35,3 +35,10 @@ class LearningTests(unittest.TestCase):
         self.assertEqual(len(events), 2)
         self.assertEqual([e['timecode_sec'] for e in events], [1.5, 8.])
         self.assertTrue(all(e['priority'] == 'unspecified' for e in events))
+
+    def test_video_bag_does_not_turn_all_frames_positive(self):
+        # A video-level label belongs to this aggregate, not to its individual windows.
+        windows=np.array([[0.,2.],[2.,4.],[4.,6.]])
+        summary=video_features(windows)
+        self.assertEqual(summary.shape,(6,))
+        self.assertEqual(summary[:2].tolist(),[2.,4.])

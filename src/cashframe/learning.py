@@ -12,10 +12,13 @@ def window_features(times, features, duration_sec, radius=1., stride=.5):
     centers = np.unique(np.r_[np.arange(0, duration_sec, stride), duration_sec])
     rows = []
     for center in centers:
-        local = features[np.abs(times - center) <= radius]
+        mask=np.abs(times-center)<=radius
+        local = features[mask]
+        local_times=times[mask]
         if not len(local):
             local = features[[np.argmin(np.abs(times-center))]]
-        rows.append(np.r_[local.mean(0), local.std(0), np.abs(np.diff(local, axis=0)).mean(0) if len(local)>1 else np.zeros(features.shape[1])])
+        motion=(np.abs(np.diff(local,axis=0))/np.maximum(np.diff(local_times)[:,None],1e-6)).mean(0) if len(local)>1 else np.zeros(features.shape[1])
+        rows.append(np.r_[local.mean(0), local.std(0), motion])
     return centers, np.asarray(rows, dtype=np.float64)
 
 
@@ -53,6 +56,18 @@ def select_threshold(scores, labels, partition='validation'):
 
 def sigmoid(x):
     return 1/(1+np.exp(-np.clip(x, -40, 40)))
+
+
+def video_features(windows):
+    return np.r_[windows.mean(0), windows.std(0), windows.max(0)]
+
+
+def video_score(model, windows):
+    point=float(model_scores(model,windows).max())
+    if 'bag_coef' not in model:return point
+    bag=video_features(windows)
+    bag=np.clip((bag-model['bag_mean'])/model['bag_std'],-8,8)
+    return float(sigmoid(bag@model['bag_coef']+model['bag_bias']))
 
 
 def fit_linear(x, y, sample_weights, decay, epochs=250):
@@ -129,6 +144,22 @@ def train_experiment(manifest_path, split_path, feature_dir, output_dir):
         candidates.append((result['f1'], result['recall'], -decay, candidate, threshold, result))
         logs.append({'decay':decay,'epochs':250,'history':history,'validation':result,'threshold':threshold})
     _, _, selected_decay, trained, trained_threshold, trained_validation = max(candidates, key=lambda c:c[:3])
+    event_threshold=trained_threshold
+    bx=np.stack([video_features(windows[gid][1]) for gid in split['train']])
+    by=np.array([by_id[gid]['label'] for gid in split['train']])
+    bag_mean,bag_std=bx.mean(0),np.maximum(bx.std(0),.05)
+    bz=np.clip((bx-bag_mean)/bag_std,-8,8)
+    bag_candidates=[]
+    for decay in (.01,.1,1.):
+        coef,bias,history=fit_linear(bz,by,np.ones(len(by)),decay)
+        candidate=dict(trained,bag_mean=bag_mean,bag_std=bag_std,bag_coef=coef,bag_bias=bias)
+        scores=[video_score(candidate,windows[gid][1]) for gid in split['validation']]
+        threshold,result=select_threshold(scores,[by_id[gid]['label'] for gid in split['validation']])
+        bag_candidates.append((result['f1'],result['recall'],-decay,candidate,threshold,result))
+        logs.append({'component':'video_bag','decay':decay,'epochs':250,'history':history,'validation':result,'threshold':threshold})
+    bag_best=max(bag_candidates,key=lambda c:c[:3])
+    if bag_best[0]>trained_validation['f1']:
+        trained,trained_threshold,trained_validation=bag_best[3:]
     baseline_scores = [float(model_scores(baseline, windows[gid][1]).max()) for gid in split['validation']]
     baseline_threshold, baseline_validation = select_threshold(baseline_scores, [by_id[i]['label'] for i in split['validation']])
     selected = 'trained' if trained_validation['f1'] >= baseline_validation['f1'] else 'baseline'
@@ -136,7 +167,8 @@ def train_experiment(manifest_path, split_path, feature_dir, output_dir):
     encoder = read_json(feature_dir / 'metadata.json')['encoder']
     config = {'seed':42,'selected_variant':selected,'thresholds':thresholds,'selected_decay':-selected_decay,
               'encoder':encoder,'window_radius_sec':1.,'window_stride_sec':.5,'positive_center_tolerance_sec':.75,
-              'split':split,'training_windows':len(y),'training_positive_windows':int(y.sum()),'taxonomy_confirmed':False}
+              'split':split,'training_windows':len(y),'training_positive_windows':int(y.sum()),'taxonomy_confirmed':False,
+              'event_threshold':event_threshold,'video_bag_enabled':'bag_coef' in trained}
     report = {'baseline_name':'Frozen DINOv2 normal-reference distance (not semantic zero-shot)',
               'validation':{'baseline':baseline_validation,'trained':trained_validation},'selected_variant':selected,'test':{},
               'unsupported_metrics':['confirmed type accuracy','human evidence relevance','new-angle robustness','semantic zero-shot baseline'],
@@ -145,14 +177,14 @@ def train_experiment(manifest_path, split_path, feature_dir, output_dir):
         rows=[]; errors=[]
         for gid in split['test']:
             centers, features=windows[gid]; scores=model_scores(model,features); peak=int(np.argmax(scores)); g=by_id[gid]
-            predicted=int(scores[peak]>=thresholds[name])
+            predicted=int(video_score(model,features)>=thresholds[name])
             err=min(abs(float(centers[peak])-p) for p in g['points_sec']) if predicted and g['label'] else None
             if err is not None:errors.append(err)
             rows.append({'group_id':gid,'truth':g['label'],'prediction':predicted,'score':float(scores[peak]),'peak_sec':float(centers[peak]),'point_error_sec':err})
         report['test'][name] = {**metrics([r['truth'] for r in rows],[r['prediction'] for r in rows]),'point_mae_on_detected_positive_sec':float(np.mean(errors)) if errors else None,'per_video':rows}
     report['training_wall_sec']=time.perf_counter()-start
     np.savez_compressed(output_dir/'baseline.npz',normal_vectors=normal)
-    np.savez_compressed(output_dir/'trained.npz',mean=mean,std=std,coef=trained['coef'],bias=trained['bias'])
+    np.savez_compressed(output_dir/'trained.npz',**{k:v for k,v in trained.items() if k!='kind'})
     write_json(output_dir/'config.json',config)
     write_json(output_dir/'training-log.json',logs)
     write_json(output_dir/'report.json',report)
