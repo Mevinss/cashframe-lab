@@ -21,6 +21,14 @@ def main():
     train.add_argument('--split', type=Path, default=Path('local/dataset/split.json'))
     train.add_argument('--features', type=Path, default=Path('local/features'))
     train.add_argument('--output', type=Path, default=Path('local/experiment'))
+    analyze = commands.add_parser('analyze')
+    analyze.add_argument('--input', type=Path, required=True)
+    analyze.add_argument('--output', type=Path, required=True)
+    analyze.add_argument('--model', type=Path, default=Path('local/experiment'))
+    analyze.add_argument('--encoder', type=Path, default=Path('local/encoder'))
+    serve = commands.add_parser('serve')
+    serve.add_argument('--host', default='127.0.0.1')
+    serve.add_argument('--port', type=int, default=8000)
     args = parser.parse_args()
     if args.command == 'audit':
         from .data import audit_dataset
@@ -36,6 +44,24 @@ def main():
         report = train_experiment(args.manifest, args.split, args.features, args.output)
         print(json.dumps({k:v for k,v in report.items() if k!='test'}, ensure_ascii=False, indent=2))
         print(json.dumps({k:{a:b for a,b in v.items() if a!='per_video'} for k,v in report['test'].items()},indent=2))
+    elif args.command == 'analyze':
+        from .pipeline import analyze_video, block_outgoing_network
+        from .data import write_json
+        block_outgoing_network()
+        def stage(name):
+            write_json(args.output/'stage.json',{'stage':name})
+        result,review=analyze_video(args.input,args.model,args.output,stage,args.encoder)
+        write_json(args.output/'result.json',result)
+        write_json(args.output/'review.json',review)
+        print(json.dumps(review['measurements']))
+    elif args.command == 'serve':
+        import uvicorn
+        from .api import create_app
+        from .config import Settings
+        settings=Settings()
+        if not settings.api_key:
+            raise SystemExit('Set CASHFRAME_API_KEY before starting the server.')
+        uvicorn.run(create_app(settings),host=args.host,port=args.port)
 
 
 if __name__ == '__main__':
