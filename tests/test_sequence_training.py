@@ -1,4 +1,5 @@
 import csv
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,8 @@ from cashframe.sequence_training import train
 
 
 class SequenceTrainingTest(unittest.TestCase):
+    @unittest.skipUnless(importlib.util.find_spec('torch') is not None,
+                         'PyTorch is installed separately for local training')
     def test_selection_does_not_open_test_feature_files_or_require_test_review(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
