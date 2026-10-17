@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Проверка кассовых операций</title>
+  <title>CashFrame</title>
   <link rel="stylesheet" href="/static/styles.css">
   <link rel="icon" type="image/svg+xml" href="/static/brand/favicon.svg">
   <script type="module" src="/static/app.js"></script>
@@ -12,7 +12,7 @@
 <body>
   <a class="skip-link" href="#main">Перейти к содержимому</a>
   <aside id="sidebar" class="sidebar" aria-label="Основная навигация">
-    <div class="sidebar-brand"><img id="team-logo" src="/static/brand/favicon.svg" alt="Логотип команды" hidden><span class="brand-fallback">Проверка кассовых операций</span><small>Командный прототип · Datathon 2026</small></div>
+    <div class="sidebar-brand"><img id="team-logo" src="/static/brand/favicon.svg" alt="Логотип команды" hidden><span class="brand-fallback">CashFrame</span><small>Командный прототип · Datathon 2026</small></div>
     <nav class="side-nav" aria-label="Разделы приложения">
       <button type="button" data-view="overview" aria-label="Обзор" aria-current="page"><span aria-hidden="true">⌂</span><span class="nav-label">Обзор</span></button>
       <button type="button" data-view="upload" aria-label="Новая проверка"><span aria-hidden="true">＋</span><span class="nav-label">Новая проверка</span></button>
@@ -23,7 +23,7 @@
     </nav>
   </aside>
   <header class="app-header">
-    <div class="header-heading"><button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Свернуть боковую панель" title="Свернуть боковую панель"><span aria-hidden="true">☰</span></button><a class="app-title" href="/">Проверка кассовых операций</a></div>
+    <div class="header-heading"><button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Свернуть боковую панель" title="Свернуть боковую панель"><span aria-hidden="true">☰</span></button><a class="app-title" href="/">CashFrame</a></div>
     <div class="header-right"><div class="header-meta"><span class="status-dot" aria-hidden="true"></span><span>Локальный анализ</span><span class="version-tag">Исследовательская версия</span></div><form id="access-form" class="header-access"><label for="api-key">Ключ доступа</label><input id="api-key" type="password" placeholder="Введите ключ один раз" autocomplete="off" spellcheck="false" required><button type="submit" class="secondary" id="apply-key">Подключить</button><span id="access-status" role="status">Не подключено</span></form></div>
   </header>
   <main id="main">
