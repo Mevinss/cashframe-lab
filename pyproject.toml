@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cashframe-lab"
+version = "0.1.0"
+description = "Local video review research and evidence workflow"
+requires-python = ">=3.11"
+dependencies = ["numpy==2.4.2", "Pillow==12.3.0", "psutil==7.2.2", "scikit-learn==1.8.0"]
+
+[project.scripts]
+cashframe = "cashframe.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
