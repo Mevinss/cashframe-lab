@@ -40,6 +40,21 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(client.get('/api/v1/jobs/no',headers=headers).status_code,401)
             self.assertEqual(client.get('/api/v1/jobs/no',headers=self.headers).status_code,404)
 
+    def test_overview_uses_real_jobs_and_preserves_strict_result(self):
+        with TestClient(create_app(self.settings,analyzer=lambda *a:({'verdict':'no_violation','violations':[]},{'events':[]}))) as client:
+            self.assertEqual(client.get('/api/v1/overview').status_code,401)
+            self.assertEqual(client.get('/api/v1/system').status_code,401)
+            jid=self.post(client).json()['job_id']
+            self.assertEqual(self.wait(client,jid)['status'],'done')
+            overview=client.get('/api/v1/overview',headers=self.headers).json()
+            self.assertEqual(overview['available'],1)
+            self.assertEqual(overview['done_with_signals'],0)
+            self.assertEqual(overview['recent'][0]['job_id'],jid)
+            self.assertNotIn('result',overview['recent'][0])
+            self.assertEqual(client.get(f'/api/v1/jobs/{jid}/objects',headers=self.headers).json(),
+                             {'status':'not_configured','source_sha256':None,'model_id':None,
+                              'observations':[],'conditions':[]})
+
     def test_exact_done_contract_and_evidence(self):
         from cashframe.video import evidence_frame
         def analyzer(path,work,stage):
