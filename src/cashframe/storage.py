@@ -35,6 +35,13 @@ class JobStore:
             row=db.execute('SELECT payload FROM jobs WHERE id=?',(jid,)).fetchone()
         return json.loads(row[0]) if row else None
 
+    def recent(self, since, limit=100):
+        """Return only jobs still inside the configured retention window."""
+        with self.connect() as db:
+            rows=db.execute('SELECT payload FROM jobs WHERE created>=? ORDER BY created DESC LIMIT ?',
+                            (since,limit)).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
     def update(self,jid,**fields):
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')

@@ -117,7 +117,11 @@ class Worker:
     def terminate(child):
         if child.poll() is None:
             if os.name=='nt':
-                subprocess.run(['taskkill','/PID',str(child.pid),'/T','/F'],capture_output=True,timeout=10)
+                result=subprocess.run(['taskkill','/PID',str(child.pid),'/T','/F'],capture_output=True,timeout=10)
+                if result.returncode and child.poll() is None:
+                    # Restricted Windows environments may deny taskkill while
+                    # still allowing the parent to terminate its own child.
+                    child.kill()
             else:
                 try:os.killpg(child.pid,signal.SIGKILL)
                 except ProcessLookupError:pass

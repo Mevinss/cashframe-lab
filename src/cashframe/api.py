@@ -98,6 +98,33 @@ def create_app(settings=None,analyzer=None):
         available=ready()
         return JSONResponse({'ready':available,'mode':'research','taxonomy_confirmed':False},status_code=200 if available else 503)
 
+    @app.get('/api/v1/overview',dependencies=[Depends(authorize)])
+    def overview():
+        jobs=store.recent(time.time()-settings.retention_hours*3600,settings.max_stored_jobs)
+        completed=[job for job in jobs if job['status']=='done']
+        measured=[job['elapsed_sec'] for job in completed if isinstance(job.get('elapsed_sec'),(int,float))]
+        return {'retention_hours':settings.retention_hours,
+                'available':len(jobs),
+                'processing':sum(job['status']=='processing' for job in jobs),
+                'done_with_signals':sum(bool(job.get('result',{}).get('violations')) for job in completed),
+                'failed':sum(job['status']=='failed' for job in jobs),
+                'average_processing_sec':round(sum(measured)/len(measured),2) if measured else None,
+                'recent':[{'job_id':job['job_id'],'status':job['status'],'filename':job.get('filename'),
+                           'created_at':job['created_at'],'elapsed_sec':job.get('elapsed_sec'),
+                           'signal_count':len(job.get('result',{}).get('violations',[])) if job['status']=='done' else None}
+                          for job in jobs[:10]],
+                'jobs':[{'job_id':job['job_id'],'status':job['status'],'filename':job.get('filename'),
+                         'created_at':job['created_at'],'elapsed_sec':job.get('elapsed_sec'),
+                         'signal_count':len(job.get('result',{}).get('violations',[])) if job['status']=='done' else None}
+                        for job in jobs]}
+
+    @app.get('/api/v1/system',dependencies=[Depends(authorize)])
+    async def system():
+        available=await asyncio.to_thread(ready)
+        return {'ready':available,'model_profile':settings.model_dir.name,
+                'money_detector':'not_configured','tracking':'not_configured',
+                'retention_hours':settings.retention_hours,'mode':'research'}
+
     @app.post('/api/v1/analyze',status_code=202,dependencies=[Depends(authorize)])
     async def analyze(request:Request):
         accepted_at=time.monotonic()
@@ -173,6 +200,12 @@ def create_app(settings=None,analyzer=None):
         job=get_job(job_id)
         return {'job_id':job_id,'status':job['status'],'stage':job['stage'],'filename':job.get('filename'),
                 'elapsed_sec':job.get('elapsed_sec'),'review':job.get('review')}
+
+    @app.get('/api/v1/jobs/{job_id}/objects',dependencies=[Depends(authorize)])
+    def objects(job_id:str):
+        get_job(job_id)
+        return {'status':'not_configured','source_sha256':None,'model_id':None,
+                'observations':[],'conditions':[]}
 
     @app.get('/api/v1/jobs/{job_id}/video',dependencies=[Depends(authorize)])
     def video(job_id:str):
