@@ -21,11 +21,15 @@ class VideoInfo:
 
 def probe_video(path):
     try:
-        result = subprocess.run(['ffprobe', '-v', 'error', '-show_format', '-show_streams', '-of', 'json', str(path)], capture_output=True, timeout=30, check=True)
+        result = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_format', '-show_streams', '-show_packets',
+                                 '-show_entries', 'format=duration:stream=codec_type,codec_name,width,height,start_time,duration:packet=pts_time,duration_time',
+                                 '-of', 'json', str(path)], capture_output=True, timeout=30, check=True)
         info = json.loads(result.stdout)
         stream = next(s for s in info['streams'] if s['codec_type'] == 'video')
         start = float(stream.get('start_time', 0))
         duration = max(float(stream.get('duration', 0)), float(info['format']['duration']) - start)
+        packet_end = max((float(p['pts_time']) + float(p.get('duration_time', 0)) for p in info.get('packets', []) if 'pts_time' in p), default=start)
+        duration = max(duration, packet_end - start)
         if not 0 < duration < 36000 or stream['width'] * stream['height'] > 3840 * 2160:
             raise ValueError('Unsupported video duration or dimensions')
         return VideoInfo(duration, stream['width'], stream['height'], start, stream['codec_name'])
