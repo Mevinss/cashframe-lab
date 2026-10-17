@@ -5,10 +5,10 @@ const vm=require('node:vm');
 
 function app(){
   const nodes=new Map();
-  function node(){return {hidden:true,style:{},dataset:{},children:[],value:'',classList:{add(){},remove(){}},
-    addEventListener(){},setAttribute(){},removeAttribute(){},replaceChildren(...items){this.children=items;},
+  function node(){return {hidden:true,style:{},dataset:{},children:[],value:'',listeners:{},classList:{add(){},remove(){}},
+    addEventListener(type,callback){this.listeners[type]=callback;},setAttribute(){},removeAttribute(){},replaceChildren(...items){this.children=items;},
     append(...items){this.children.push(...items);},prepend(item){this.children.unshift(item);},
-    querySelectorAll(){return [];},querySelector(){return null;},focus(){},reset(){},pause(){},remove(){}};}
+    querySelectorAll(){return [];},querySelector(){return node();},focus(){},reset(){},pause(){},remove(){}};}
   const document={getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node,body:node()};
   const context=vm.createContext({document,Response,TextDecoder,AbortController,URL,FormData,console,
     setTimeout,clearTimeout,setInterval,clearInterval,fetch:async()=>new Response('{}')});
@@ -19,6 +19,28 @@ function app(){
 test('centisecond rounding carries into seconds and minutes',()=>{
   const a=app();assert.equal(a.run('preciseTime(1.9999)'),'0:02.00');assert.equal(a.run('preciseTime(59.9999)'),'1:00.00');
 });
+test('overview and empty history use actual response counts',()=>{
+  const a=app();a.run("screen('overview');renderOverview({retention_hours:24,available:0,processing:0,done_with_signals:0,failed:0,average_processing_sec:null,recent:[],jobs:[]})");
+  assert.equal(a.nodes.get('overview-view').hidden,false);
+  assert.equal(a.nodes.get('upload-view').hidden,true);
+  assert.equal(a.nodes.get('overview-metrics').children.length,5);
+  assert.equal(a.nodes.get('history-list').children[0].textContent,'Проверок за срок хранения пока нет.');
+});
+test('one shared key field and distinct overview content',()=>{
+  const html=fs.readFileSync('web/index.html','utf8');
+  assert.equal((html.match(/id="api-key"/g)||[]).length,1);
+  assert.doesNotMatch(html,/id="overview-key"/);
+  assert.match(html,/id="overview-metrics"/);
+  assert.match(html,/id="drop-zone"/);
+});
+test('one successful key connection enables the upload form',async()=>{
+  const a=app();a.nodes.get('api-key').value='test-key';
+  a.context.fetch=async()=>new Response(JSON.stringify({retention_hours:24,available:0,processing:0,done_with_signals:0,failed:0,average_processing_sec:null,recent:[],jobs:[]}));
+  await a.nodes.get('access-form').listeners.submit({preventDefault(){}});
+  a.run("setFile({name:'sample.mov',size:100})");
+  assert.equal(a.nodes.get('access-status').textContent,'Подключено');
+  assert.equal(a.nodes.get('analyze-button').disabled,false);
+});
 test('new negative result clears old selected interval',()=>{
   const a=app();a.run("state.review={review:{duration_sec:10}};state.result={violations:[]};$('selected-interval').hidden=false;renderTimeline()");
   assert.equal(a.nodes.get('selected-interval').hidden,true);assert.equal(a.nodes.get('selected-interval').style.width,'0%');
@@ -27,6 +49,12 @@ test('preview failure preserves completed verdict and JPEG evidence',async()=>{
   const a=app();await a.run(`state.review={review:{duration_sec:10,events:[]}};state.jobId='test';state.result={verdict:'violation',violations:[{type:'test',timecode_sec:1,description:'test',evidence_frames:[{timestamp_sec:1,image_base64:'fake-fixture'}]}]};request=async()=>{const e=new Error('media unavailable');e.status=404;throw e;};renderResult()`);
   assert.equal(a.nodes.get('result-view').hidden,false);assert.equal(a.nodes.get('event-detail').hidden,false);
   assert.equal(a.nodes.get('evidence').children.length,1);assert.equal(a.nodes.get('video-error').hidden,false);
+  assert.match(a.nodes.get('result-explanation').children[1].textContent,/не подтверждает тип действия/);
+});
+test('zero fragments explain what the model did and did not find',async()=>{
+  const a=app();await a.run(`state.review={review:{duration_sec:10,events:[]}};state.jobId='test';state.result={verdict:'no_violation',violations:[]};request=async()=>{throw Error('optional unavailable')};renderResult()`);
+  assert.match(a.nodes.get('result-explanation').children[1].textContent,/отсутствие срабатываний/);
+  assert.match(a.nodes.get('event-list').children[0].textContent,/не означает/);
 });
 test('GET retries transient errors, POST is not automatically duplicated',async()=>{
   const a=app();let calls=0;a.context.fetch=async()=>{calls++;if(calls===1)throw Error('offline');return new Response('{}');};

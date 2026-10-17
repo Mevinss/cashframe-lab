@@ -1,13 +1,19 @@
 import {ru} from './i18n.ru.js';
 
 const $=id=>document.getElementById(id);
-const state={file:null,key:'',jobId:null,result:null,review:null,selected:null,blob:null,timer:null,generation:0,drafts:{}};
+const state={file:null,key:'',authorized:false,jobId:null,result:null,review:null,selected:null,blob:null,timer:null,generation:0,drafts:{},overview:null};
 const time=value=>`${Math.floor(Math.max(0,value||0)/60)}:${String(Math.floor(Math.max(0,value||0)%60)).padStart(2,'0')}`;
 const preciseTime=value=>{const ticks=Math.round(Math.max(0,Number(value)||0)*100);return `${time(ticks/100)}.${String(ticks%100).padStart(2,'0')}`;};
+const fragmentWord=count=>count%10===1&&count%100!==11?'фрагмент':count%10>=2&&count%10<=4&&(count%100<12||count%100>14)?'фрагмента':'фрагментов';
 function message(text){$('notice').textContent=text;$('notice').hidden=!text;}
-function screen(name){for(const view of ['upload','processing','result']){$(`${view}-view`).hidden=view!==name;const step=$(`step-${view}`);if(view===name)step.setAttribute('aria-current','step');else step.removeAttribute('aria-current');}}
+function screen(name){
+  for(const view of ['overview','history','rules','guide','system','upload','processing','result'])$(`${view}-view`).hidden=view!==name;
+  $('workflow').hidden=!['upload','processing','result'].includes(name);
+  for(const view of ['upload','processing','result']){const step=$(`step-${view}`);if(view===name)step.setAttribute('aria-current','step');else step.removeAttribute('aria-current');}
+  for(const button of document.querySelectorAll?.('.side-nav button')||[]){if(button.dataset.view===name)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');}
+}
 function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
-function controls(){ $('analyze-button').disabled=!(state.file&&$('api-key').value.trim()); }
+function controls(){ $('analyze-button').disabled=!(state.file&&state.authorized); }
 function setFile(file){state.file=file||null;$('file-summary').hidden=!file;if(file){$('file-name').textContent=file.name;$('file-size').textContent=`${(file.size/1024/1024).toFixed(1)} МБ`;}controls();}
 async function request(path,options={}){
   const {timeoutMs=15000,retries=options.method&&options.method!=='GET'?0:2,...fetchOptions}=options;
@@ -24,6 +30,48 @@ async function request(path,options={}){
     await new Promise(resolve=>setTimeout(resolve,500*2**attempt));
   }
 }
+const logo=$('team-logo');function showLogo(){logo.hidden=false;logo.nextElementSibling.hidden=true;}logo.addEventListener('load',showLogo);logo.addEventListener('error',()=>{logo.hidden=true;});if(logo.complete&&logo.naturalWidth>0)showLogo();
+const sidebarToggle=$('sidebar-toggle');
+let sidebarOpen=true;
+sidebarToggle.addEventListener('click',()=>{
+  sidebarOpen=!sidebarOpen;
+  document.body.classList[sidebarOpen?'remove':'add']('sidebar-closed');
+  sidebarToggle.setAttribute('aria-expanded',String(sidebarOpen));
+  const label=sidebarOpen?'Свернуть боковую панель':'Открыть боковую панель';
+  sidebarToggle.setAttribute('aria-label',label);
+  sidebarToggle.title=label;
+});
+function currentKey(){return state.authorized?state.key:'';}
+function jobLabel(job){const outcome=job.status==='done'?(job.signal_count?`${job.signal_count} ${fragmentWord(job.signal_count)} для просмотра`:'фрагменты не выделены'):job.status==='processing'?'В обработке':'Ошибка обработки';return `${job.filename||'Видео'} · ${new Date(job.created_at*1000).toLocaleString('ru-RU')} · ${outcome}`;}
+function displayEventTitle(event,meta){return meta.localization_status==='unresolved'?'Момент действия не установлен':event.type.startsWith('Визуальный сигнал')?'Тип действия не определён':event.type;}
+function renderJobRows(target,jobs){const node=$(target);node.replaceChildren();if(!jobs.length){node.append(element('p','empty-state','Проверок за срок хранения пока нет.'));return;}
+  for(const job of jobs){const row=element('div','recent-row'),description=element('strong','',jobLabel(job)),note=element('span','',job.elapsed_sec==null?'Время обработки пока неизвестно':`Полное время: ${job.elapsed_sec} сек`);row.append(description,note);
+    if(job.status==='done'){const button=element('button','text-button','Открыть результат');button.type='button';button.addEventListener('click',()=>openSavedJob(job.job_id));row.append(button);}
+    node.append(row);}}
+function renderHistory(){if(!state.overview)return;const filter=$('history-filter').value;renderJobRows('history-list',state.overview.jobs.filter(job=>!filter||filter==='all'||job.status===filter));}
+function renderLockedMetrics(){const card=element('div','metrics-locked');const icon=element('span','','✦');icon.setAttribute('aria-hidden','true');const copy=element('div');copy.append(element('strong','','Показатели появятся после подключения'),element('p','','Введите ключ доступа в верхней панели, чтобы увидеть реальные проверки и время обработки.'));card.append(icon,copy);$('overview-metrics').replaceChildren(card);}
+function renderOverview(data){state.overview=data;const metrics=$('overview-metrics');metrics.replaceChildren();
+  for(const [value,label] of [[data.available,'Доступные проверки'],[data.processing,'В обработке'],[data.done_with_signals,'С фрагментами для просмотра'],[data.failed,'Ошибки обработки'],[data.average_processing_sec==null?'—':`${data.average_processing_sec} с`,'Среднее измеренное время']]){const card=element('div','metric');card.append(element('strong','',String(value)),element('span','',label));metrics.append(card);}
+  renderJobRows('overview-recent',data.recent.slice(0,3));renderHistory();$('overview-period').textContent=`За последние ${data.retention_hours} ч · задания удаляются по сроку хранения.`;}
+async function loadOverview(){if(!currentKey()){message('Введите ключ в верхней панели и нажмите «Подключить».');return;}try{message('');renderOverview(await(await request('/api/v1/overview')).json());}catch(error){if(error.status===401){state.authorized=false;state.key='';$('access-status').textContent='Ключ не принят';controls();}message(error.message);}}
+async function loadRules(){const node=$('rules-list');node.replaceChildren();if(!currentKey()){node.append(element('p','plain-panel','Введите ключ в верхней панели.'));return;}
+  try{const data=await(await request('/api/v1/rules')).json();for(const rule of data.rules||[]){const card=element('article','rule-card');card.append(element('h2','',rule.title),element('p','',`${rule.document} · ${rule.section}`));
+      const link=element('a','',`Источник · проверено ${rule.verified_on||'не проверено'}`);link.href=rule.url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);
+      const details=element('dl');for(const [name,value] of [['Визуально проверяемые условия',(rule.visual_cues||[]).join('; ')],['Применимость',rule.applicability],['Ограничения и исключения',rule.limits],['Статус',rule.verified?`Источник проверен; автоматическое сопоставление ${rule.automatic_matching_enabled?'включено':'выключено'}`:'Источник не проверен']]){details.append(element('dt','',name),element('dd','',value||'Не указано'));}card.append(details);node.append(card);}
+  }catch(error){node.append(element('p','plain-panel',error.message));}}
+async function loadSystem(){if(!currentKey()){$('system-details').textContent='Введите ключ в верхней панели.';return;}$('system-details').textContent='Проверка локальной модели…';
+  try{const data=await(await request('/api/v1/system',{timeoutMs:75000,retries:0})).json();$('system-details').textContent=`Модель ${data.model_profile}: ${data.ready?'технически готова':'не готова'}. Детектор денег: не настроен. Трекинг: не настроен. Хранение заданий: ${data.retention_hours} ч.`;}
+  catch(error){$('system-details').textContent=error.message;}}
+async function openSavedJob(jobId){try{state.generation++;state.jobId=jobId;state.result=await(await request(`/api/v1/jobs/${jobId}`)).json();state.review=await(await request(`/api/v1/jobs/${jobId}/review`)).json();if(state.result.status!=='done')throw new Error('Результат ещё не готов.');await renderResult();}catch(error){message(error.message);}}
+function navigate(name){screen(name);message('');if((name==='overview'||name==='history')&&state.authorized)void loadOverview();if(name==='rules')void loadRules();if(name==='system')void loadSystem();}
+for(const button of document.querySelectorAll?.('.side-nav button')||[])button.addEventListener('click',()=>navigate(button.dataset.view));
+for(const button of document.querySelectorAll?.('[data-open-upload]')||[])button.addEventListener('click',()=>navigate('upload'));
+$('load-overview').addEventListener('click',loadOverview);$('refresh-system').addEventListener('click',loadSystem);
+$('history-filter').addEventListener('change',renderHistory);
+$('api-key').addEventListener('input',()=>{if($('api-key').value.trim()!==state.key){state.key='';state.authorized=false;state.overview=null;renderLockedMetrics();$('overview-recent').textContent='Нажмите «Подключить», чтобы загрузить данные.';$('history-list').textContent='Нажмите «Подключить», чтобы загрузить данные.';$('access-status').textContent='Не подключено';controls();}});
+$('access-form').addEventListener('submit',async event=>{event.preventDefault();const candidate=$('api-key').value.trim();if(!candidate){message('Введите ключ доступа.');return;}state.key=candidate;state.authorized=false;$('access-status').textContent='Проверяем ключ…';
+  try{const data=await(await request('/api/v1/overview',{retries:0})).json();state.authorized=true;$('access-status').textContent='Подключено';message('');renderOverview(data);controls();}
+  catch(error){state.key='';state.authorized=false;$('access-status').textContent='Ключ не принят';message(error.message);controls();}});
 async function pollJob(generation){
   const deadline=Date.now()+360000;
   $('resume-poll').hidden=true;
@@ -43,7 +91,6 @@ async function pollJob(generation){
   }
 }
 $('resume-poll').addEventListener('click',async()=>{message('');try{await pollJob(state.generation);}catch(error){message(error.message);$('resume-poll').hidden=false;}});
-$('api-key').addEventListener('input',controls);
 $('video-file').addEventListener('change',e=>setFile(e.target.files[0]));
 $('remove-file').addEventListener('click',()=>{$('video-file').value='';setFile(null);});
 for(const event of ['dragover','dragenter'])$('drop-zone').addEventListener(event,e=>{e.preventDefault();$('drop-zone').classList.add('dragging');});
@@ -53,7 +100,8 @@ $('upload-form').addEventListener('submit',async e=>{
   e.preventDefault();message('');if(!state.file)return;
   if(!/\.(mov|mp4)$/i.test(state.file.name)){message('Выберите видео в формате MOV или MP4.');return;}
   if(state.file.size>100*1024*1024){message('Размер видео превышает 100 МБ. Выберите файл меньшего размера.');return;}
-  state.key=$('api-key').value.trim();state.generation++;const generation=state.generation;
+  if(!state.authorized){message('Сначала введите ключ в верхней панели и нажмите «Подключить».');$('api-key').focus();return;}
+  state.generation++;const generation=state.generation;
   state.jobId=null;state.result=null;$('resume-poll').hidden=true;
   screen('processing');$('processing-stage').textContent=ru.stages.accepted;$('processing-filename').textContent=state.file.name;
   const start=Date.now();state.timer=setInterval(()=>{$('elapsed').textContent=`Прошло ${time((Date.now()-start)/1000)}`;},1000);
@@ -69,7 +117,11 @@ $('upload-form').addEventListener('submit',async e=>{
 async function renderResult(){
   const {result,review}=state,detail=review.review||{};
   $('result-title').textContent=result.verdict==='violation'?ru.resultPositive:ru.resultNegative;
-  $('result-subtitle').textContent=`${review.filename||state.file?.name||'Видео'} · ${time(detail.duration_sec)} · ${result.violations.length} событий`;
+  const count=result.violations.length;
+  $('result-subtitle').textContent=`${review.filename||state.file?.name||'Видео'} · ${time(detail.duration_sec)} · ${count?`${count} ${fragmentWord(count)}`:'нет отмеченных фрагментов'}`;
+  const summary=$('result-explanation');summary.replaceChildren();summary.className=`result-explanation ${count?'has-signals':'no-signals'}`;
+  summary.append(element('strong','',count?`${count} ${fragmentWord(count)} стоит просмотреть`:'Модель не выделила фрагментов'),
+    element('p','',count?'Это участки, похожие на положительные примеры из обучения. Выберите фрагмент справа, посмотрите исходное видео и кадры, затем решите, что действительно произошло. Модель не подтверждает тип действия или нарушение правила.':'Это означает только отсутствие срабатываний текущей модели на этом видео. Анализ выполнен по выборкам кадров: короткое, закрытое или незнакомое модели действие могло остаться незамеченным. Просмотрите запись самостоятельно.'));
   $('event-count').textContent=result.violations.length;
   $('research-banner').textContent=detail.video_classifier_status==='experimental-v2'
     ?'Экспериментальный классификатор: качество на новом ракурсе не подтверждено. Типы и нормативные основания требуют проверки человеком.'
@@ -128,7 +180,10 @@ function renderEvents(){
   indices.sort((a,b)=>$('event-sort').value==='priority'?(rank[reviewEvent(a).priority]??3)-(rank[reviewEvent(b).priority]??3)||events[a].timecode_sec-events[b].timecode_sec:events[a].timecode_sec-events[b].timecode_sec);
   for(const i of indices){
     const event=events[i],meta=reviewEvent(i),priority=meta.priority||'unspecified';const button=element('button','event-item');button.type='button';
-    button.dataset.eventIndex=i;button.setAttribute('aria-pressed',String(state.selected===i));button.append(element('span','event-time tabular',time(event.timecode_sec)),element('strong','',event.type),element('span',`badge ${priority}`,ru.priority[priority]||ru.priority.unspecified));
+    button.dataset.eventIndex=i;button.setAttribute('aria-pressed',String(state.selected===i));
+    const unresolved=meta.localization_status==='unresolved';
+    const title=unresolved?'Сигнал относится ко всему видео':displayEventTitle(event,meta);
+    button.append(element('span','event-kicker',`Фрагмент ${i+1} · ${unresolved?'время не установлено':time(event.timecode_sec)}`),element('strong','',title),element('span','event-explainer',unresolved?'Кадры показывают контекст, а не момент нарушения.':'Откройте видео и исходные кадры для проверки.'),element('span',`badge ${priority}`,ru.priority[priority]||ru.priority.unspecified));
     button.addEventListener('click',()=>selectEvent(i));list.append(button);
   }
 }
@@ -137,14 +192,14 @@ function renderTimeline(){
   for(const node of $('timeline').querySelectorAll('.event-marker,.coverage-segment'))node.remove();const duration=state.review.review.duration_sec||1;
   const intervals=state.review.review.coverage?.length?state.review.review.coverage:[{start_sec:0,end_sec:duration,status:'unknown'}];
   for(const interval of intervals){const status=['sampled','incomplete','unknown'].includes(interval.status)?interval.status:'unknown';const segment=element('div',`coverage-segment coverage-${status}`);segment.style.left=`${100*interval.start_sec/duration}%`;segment.style.width=`${100*(interval.end_sec-interval.start_sec)/duration}%`;segment.setAttribute('role','img');segment.setAttribute('aria-label',`${time(interval.start_sec)}–${time(interval.end_sec)}: ${status==='sampled'?'выборочный анализ, видимость не оценена':status==='incomplete'?'неполный анализ':'состояние покрытия неизвестно'}`);$('timeline').prepend(segment);}
-  state.result.violations.forEach((event,i)=>{const marker=element('button','event-marker');marker.type='button';marker.style.left=`${Math.min(99,100*event.timecode_sec/duration)}%`;marker.setAttribute('aria-label',`Событие ${i+1}, ${time(event.timecode_sec)}`);marker.title=`Событие ${i+1} · ${time(event.timecode_sec)}`;marker.addEventListener('click',()=>selectEvent(i));$('timeline').append(marker);});
+  state.result.violations.forEach((event,i)=>{const marker=element('button','event-marker');marker.type='button';marker.style.left=`${Math.min(99,100*event.timecode_sec/duration)}%`;const label=reviewEvent(i).localization_status==='unresolved'?`Фрагмент ${i+1}: точное время не установлено`:`Фрагмент ${i+1} для просмотра, ${time(event.timecode_sec)}`;marker.setAttribute('aria-label',label);marker.title=label;marker.addEventListener('click',()=>selectEvent(i));$('timeline').append(marker);});
 }
 function selectEvent(index){
   const keyboardSelection=document.activeElement?.matches('.event-item');
   if(state.selected!==null){state.drafts[state.selected]={start:$('annotation-start').value,end:$('annotation-end').value,reviewer:$('annotation-reviewer').value,type:$('annotation-type').value,fact:$('annotation-fact').value,rule:$('annotation-rule').value,confirm:$('annotation-confirm').checked,visibility:$('annotation-visibility').value,applicability:$('annotation-applicability').checked};}
   state.selected=index;const event=state.result.violations[index],meta=reviewEvent(index),duration=state.review.review.duration_sec||1;
-  $('player').currentTime=event.timecode_sec;$('event-detail').hidden=false;$('detail-title').textContent=event.type;
-  $('detail-time').textContent=`${time(event.timecode_sec)} · фрагмент ${time(meta.start_sec??event.timecode_sec)}–${time(meta.end_sec??event.timecode_sec)}`;
+  $('player').currentTime=event.timecode_sec;$('event-detail').hidden=false;$('detail-title').textContent=`Фрагмент ${index+1}: ${displayEventTitle(event,meta)}`;
+  $('detail-time').textContent=meta.localization_status==='unresolved'?'Точное время действия не определено; показан контекст видео.':`${time(event.timecode_sec)} · участок ${time(meta.start_sec??event.timecode_sec)}–${time(meta.end_sec??event.timecode_sec)}`;
   const priority=meta.priority||'unspecified';$('detail-priority').className=`badge ${priority}`;$('detail-priority').textContent=ru.priority[priority]||ru.priority.unspecified;
   $('detail-description').textContent=event.description;$('priority-reason').textContent=meta.priority_reason||'';
   $('rule-description').textContent='Не сопоставлено: конкретное действие и условия применения нормы требуют подтверждения.';
