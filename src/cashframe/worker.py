@@ -39,7 +39,8 @@ class Worker:
             else:
                 environment=dict(os.environ,PYTHONPATH=str(self.settings.root/'src'),PYTHONIOENCODING='utf-8')
                 command=[sys.executable,'-m','cashframe.cli','analyze','--input',str(path),'--output',str(work),
-                         '--model',str(self.settings.model_dir),'--encoder',str(self.settings.local/'encoder')]
+                         '--model',str(self.settings.model_dir),'--encoder',str(self.settings.local/'encoder'),
+                         '--budget-sec',str(max(1,self.settings.deadline_sec-(time.monotonic()-accepted_at)-10))]
                 with (work/'worker.log').open('wb') as log:
                     options={'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {'start_new_session':True}
                     child=subprocess.Popen(command,stdout=log,stderr=log,env=environment,**options)
@@ -63,7 +64,7 @@ class Worker:
                 raise TimeoutError('processing_deadline')
             validated=CompletedResult(job_id=jid,**result).model_dump()
             self.store.update(jid,status='done',stage='done',result=validated,review=review,
-                              elapsed_sec=round(time.monotonic()-accepted_at,3))
+                              completed_at=time.time(),elapsed_sec=round(time.monotonic()-accepted_at,3))
         except Exception as exc:
             code='service_restarted' if self.stopping.is_set() else 'processing_deadline' if isinstance(exc,TimeoutError) else 'analysis_failed'
             self.store.update(jid,status='failed',stage='failed',error=code)

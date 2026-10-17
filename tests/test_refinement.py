@@ -1,11 +1,16 @@
 import unittest
 import numpy as np
 from cashframe.learning import window_features
-from cashframe.pipeline import refine_features
+from cashframe.pipeline import refine_features,should_refine
 from cashframe.features import FeatureSequence
 
 
 class RefinementTests(unittest.TestCase):
+    def test_refinement_budget_preserves_time_for_evidence_and_result(self):
+        events=[{'start_sec':0,'end_sec':60}]
+        self.assertTrue(should_refine(40,50,120,events,260))
+        self.assertFalse(should_refine(150,170,120,events,260))
+        self.assertFalse(should_refine(1,250,120,events,260))
     def test_temporal_motion_is_rate_not_sampling_frequency(self):
         for step in [.25,.125]:
             times=np.arange(0,2,step)

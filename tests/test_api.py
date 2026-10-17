@@ -130,13 +130,27 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(len(saved['source_sha256']),64)
 
     def test_retention_cleans_without_restart(self):
+        from unittest.mock import patch
         self.settings.retention_hours=.00005
         def analyze(*args):return {'verdict':'no_violation','violations':[]},{'events':[]}
-        with TestClient(create_app(self.settings,analyzer=analyze)) as client:
+        with patch('cashframe.api.time.time',return_value=1000) as now, TestClient(create_app(self.settings,analyzer=analyze)) as client:
             jid=self.post(client).json()['job_id'];self.wait(client,jid)
             folder=self.settings.local/'jobs'/jid
+            now.return_value=1001
             for _ in range(40):
                 if not folder.exists():break
                 time.sleep(.025)
             self.assertFalse(folder.exists())
             self.assertEqual(client.get('/api/v1/jobs/'+jid,headers=self.headers).status_code,404)
+
+    def test_experimental_profile_requires_its_own_classifier_files(self):
+        import json
+        model=self.settings.model_dir;model.mkdir(parents=True)
+        (model/'config.json').write_text(json.dumps({'selected_variant':'trained','video_classifier':'selected.npz'}))
+        (model/'trained.npz').write_bytes(b'fixture')
+        encoder=self.settings.local/'encoder';encoder.mkdir()
+        (encoder/'encoder.json').write_text('{}');(encoder/'weights.pth').write_bytes(b'fixture')
+        with TestClient(create_app(self.settings)) as client:
+            self.assertEqual(client.get('/health/ready').status_code,503)
+            (model/'selected.npz').write_bytes(b'fixture');(model/'selection-frozen.json').write_text('{}')
+            self.assertEqual(client.get('/health/ready').status_code,200)

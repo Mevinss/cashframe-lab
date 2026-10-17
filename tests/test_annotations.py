@@ -36,3 +36,22 @@ class AnnotationTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_annotation(item,10)
         item.update(reviewer='test',observed_fact='fact',type='test',confirmed='false')
         with self.assertRaises(ValueError):validate_annotation(item,10)
+
+    def test_rule_confirmation_needs_clear_visibility_and_applicability(self):
+        item={'start_sec':1,'end_sec':2,'confirmed':True,'origin':'human','reviewer':'test',
+              'observed_fact':'Synthetic action','type':'fixture','rule_id':'r','rule_status':'confirmed'}
+        with self.assertRaises(ValueError):validate_annotation(item,10)
+        item.update(visibility='clear',rule_applicability_confirmed=True)
+        self.assertEqual(validate_annotation(item,10)['rule_status'],'confirmed')
+        item['visibility']='partial'
+        with self.assertRaises(ValueError):validate_annotation(item,10)
+
+    def test_invalid_visibility_and_rule_status_rejected(self):
+        for extra in ({'visibility':'invented'},{'rule_status':'approved-by-bank'}, {'rule_applicability_confirmed':'true'}):
+            with self.assertRaises(ValueError):validate_annotation({'start_sec':0,'end_sec':1,**extra},10)
+
+    def test_placeholder_type_cannot_be_confirmed(self):
+        item={'start_sec':0,'end_sec':1,'confirmed':True,'origin':'human','reviewer':'test','observed_fact':'fact','type':'unknown','rule_status':'unresolved'}
+        for label in ('unknown','unconfirmed_event','unconfirmed event','Тип не установлен','Визуальный сигнал — тип не подтверждён'):
+            item['type']=label
+            with self.subTest(label=label),self.assertRaises(ValueError):validate_annotation(item,10)

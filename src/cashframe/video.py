@@ -6,6 +6,7 @@ import base64
 import json
 import subprocess
 import tempfile
+from fractions import Fraction
 
 import numpy as np
 
@@ -17,12 +18,16 @@ class VideoInfo:
     height: int
     start_sec: float
     codec: str
+    average_fps: float | None = None
+    nominal_fps: float | None = None
+    frame_rate_mode: str = 'unknown'
+    pixel_format: str | None = None
 
 
 def probe_video(path):
     try:
         result = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_format', '-show_streams', '-show_packets',
-                                 '-show_entries', 'format=duration:stream=codec_type,codec_name,width,height,start_time,duration:packet=pts_time,duration_time',
+                                 '-show_entries', 'format=duration:stream=codec_type,codec_name,width,height,start_time,duration,avg_frame_rate,r_frame_rate,pix_fmt:packet=pts_time,duration_time',
                                  '-of', 'json', '-protocol_whitelist', 'file,pipe', str(path)], capture_output=True, timeout=30, check=True)
         info = json.loads(result.stdout)
         stream = next(s for s in info['streams'] if s['codec_type'] == 'video')
@@ -32,7 +37,16 @@ def probe_video(path):
         duration = max(duration, packet_end - start)
         if not 0 < duration < 36000 or stream['width'] * stream['height'] > 3840 * 2160:
             raise ValueError('Unsupported video duration or dimensions')
-        return VideoInfo(duration, stream['width'], stream['height'], start, stream['codec_name'])
+        def rate(name):
+            try:
+                value=float(Fraction(stream.get(name,'0/1')))
+                return value if value>0 else None
+            except (ValueError,ZeroDivisionError):return None
+        stamps=sorted({float(p['pts_time']) for p in info.get('packets',[]) if 'pts_time' in p})
+        gaps=np.diff(stamps)
+        mode=('variable' if float(np.ptp(gaps))>max(.0001,float(np.median(gaps))*.01) else 'constant') if len(gaps)>1 else 'unknown'
+        return VideoInfo(duration, stream['width'], stream['height'], start, stream['codec_name'],
+                         rate('avg_frame_rate'),rate('r_frame_rate'),mode,stream.get('pix_fmt'))
     except (subprocess.SubprocessError, KeyError, StopIteration, json.JSONDecodeError) as exc:
         raise ValueError('Video container cannot be read') from exc
 
@@ -59,10 +73,10 @@ def frame_times(path):
     return times
 
 
-def iter_samples(path, sample_fps=4., size=224):
+def iter_samples(path, sample_fps=4., size=224, timestamps=None):
     if not 0 < sample_fps <= 30 or size < 8:
         raise ValueError('Invalid sampling configuration')
-    times = frame_times(path)
+    times = frame_times(path) if timestamps is None else timestamps
     period = 1 / sample_fps - 1e-6
     selected, previous = [], -float('inf')
     for timestamp in times:
@@ -96,8 +110,8 @@ def iter_samples(path, sample_fps=4., size=224):
                 process.wait()
 
 
-def evidence_frame(path, timestamp_sec):
-    times = frame_times(path)
+def evidence_frame(path, timestamp_sec, times=None):
+    times = frame_times(path) if times is None else times
     index = min(len(times) - 1, bisect_left(times, times[0] + max(0, timestamp_sec)))
     command = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-an',
                '-vf', f'select=eq(n\\,{index})', '-frames:v', '1', '-q:v', '2', '-f', 'image2pipe', '-vcodec', 'mjpeg', 'pipe:1']
@@ -109,6 +123,13 @@ def evidence_frame(path, timestamp_sec):
 
 def browser_copy(path, output):
     output = Path(output)
+    info=probe_video(path)
+    if info.codec=='h264' and info.pixel_format=='yuv420p':
+        try:
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-protocol_whitelist','file,pipe','-copyts','-i',str(path),'-map','0:v:0','-an',
+                            '-c:v','copy','-output_ts_offset',str(-info.start_sec),'-movflags','+faststart','-y',str(output)],capture_output=True,check=True,timeout=30)
+            return output
+        except subprocess.SubprocessError:pass
     subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-map', '0:v:0', '-an',
                     '-vf', 'setpts=PTS-STARTPTS', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-threads', '1',
                     '-movflags', '+faststart', '-y', str(output)], capture_output=True, check=True, timeout=90)

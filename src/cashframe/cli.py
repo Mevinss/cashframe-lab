@@ -26,6 +26,7 @@ def main():
     analyze.add_argument('--output', type=Path, required=True)
     analyze.add_argument('--model', type=Path, default=Path('local/experiment'))
     analyze.add_argument('--encoder', type=Path, default=Path('local/encoder'))
+    analyze.add_argument('--budget-sec',type=float,default=240)
     serve = commands.add_parser('serve')
     serve.add_argument('--host', default='127.0.0.1')
     serve.add_argument('--port', type=int, default=8000)
@@ -50,7 +51,7 @@ def main():
         block_outgoing_network()
         def stage(name):
             write_json(args.output/'stage.json',{'stage':name})
-        result,review=analyze_video(args.input,args.model,args.output,stage,args.encoder)
+        result,review=analyze_video(args.input,args.model,args.output,stage,args.encoder,budget_sec=args.budget_sec)
         write_json(args.output/'result.json',result)
         write_json(args.output/'review.json',review)
         print(json.dumps(review['measurements']))

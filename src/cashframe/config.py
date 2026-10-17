@@ -14,6 +14,7 @@ class Settings:
     deadline_sec: float = 270
     max_duration_sec: float = 180
     retention_hours: int = 24
+    model_directory: Path | None = None
 
     @property
     def local(self):
@@ -21,4 +22,6 @@ class Settings:
 
     @property
     def model_dir(self):
-        return self.local / 'experiment'
+        if self.model_directory is None:return self.local / 'experiment'
+        path=Path(self.model_directory)
+        return path if path.is_absolute() else self.root/path

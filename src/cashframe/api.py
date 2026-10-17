@@ -8,7 +8,7 @@ import threading
 import time
 
 from fastapi import Depends,FastAPI,HTTPException,Request
-from fastapi.responses import FileResponse,JSONResponse
+from fastapi.responses import FileResponse,JSONResponse,Response
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from starlette.formparsers import MultiPartException,MultiPartParser
@@ -19,6 +19,7 @@ from .data import read_json,write_json,sha256_file
 from .storage import JobStore
 from .video import probe_video
 from .worker import Worker
+from .reporting import read_annotations,report_files
 
 
 class UploadTooLarge(Exception):pass
@@ -44,14 +45,16 @@ def create_app(settings=None,analyzer=None):
     store=JobStore(settings.local/'jobs.sqlite')
     worker=Worker(settings,store,analyzer)
     annotation_lock=threading.Lock()
+    report_lock=threading.RLock()
     jobs_dir=settings.local/'jobs';jobs_dir.mkdir(parents=True,exist_ok=True)
 
     def cleanup():
-        for jid in store.expired(time.time()-settings.retention_hours*3600):
-            target=jobs_dir/jid
-            if target.resolve().parent!=jobs_dir.resolve():raise ValueError('Unsafe cleanup path')
-            shutil.rmtree(target,ignore_errors=True)
-            if not target.exists():store.delete(jid)
+        with report_lock:
+            for jid in store.expired(time.time()-settings.retention_hours*3600):
+                target=jobs_dir/jid
+                if target.resolve().parent!=jobs_dir.resolve():raise ValueError('Unsafe cleanup path')
+                shutil.rmtree(target,ignore_errors=True)
+                if not target.exists():store.delete(jid)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -88,6 +91,7 @@ def create_app(settings=None,analyzer=None):
             config=read_json(settings.model_dir/'config.json')
             selected=config['selected_variant']
             if selected not in ('trained','baseline'):return False
+            if config.get('video_classifier') and (config['video_classifier']!='selected.npz' or not all((settings.model_dir/name).is_file() for name in ('selected.npz','selection-frozen.json'))):return False
             return all(p.is_file() for p in [settings.model_dir/f'{selected}.npz',settings.local/'encoder/encoder.json',settings.local/'encoder/weights.pth'])
         except (OSError,ValueError,KeyError):return False
 
@@ -176,9 +180,37 @@ def create_app(settings=None,analyzer=None):
     @app.get('/api/v1/rules',dependencies=[Depends(authorize)])
     def rules():return read_json(ROOT/'config/rules.json')
 
+    def download_report(job_id,kind):
+        with report_lock:
+            job=get_job(job_id)
+            if job['status']!='done':raise HTTPException(409,'Отчёт доступен после успешного завершения анализа.')
+            try:
+                with annotation_lock:annotations=read_annotations(settings.local,job_id)
+                folder,integrity=report_files(job,jobs_dir/job_id,read_json(ROOT/'config/rules.json')['rules'],annotations)
+                name='report.pdf' if kind=='pdf' else 'passport.json'
+                data=(folder/name).read_bytes()
+            except (ValueError,KeyError,OSError):
+                raise HTTPException(409,'Не удалось проверить или сформировать отчёт. Повторите проверку целостности локальных данных.')
+            return Response(data,media_type='application/pdf' if kind=='pdf' else 'application/json',
+                            headers={'Content-Disposition':f'attachment; filename="{job_id}-{name}"',
+                                     'Cache-Control':'no-store','X-Report-SHA256':integrity['report.pdf'],
+                                     'X-Passport-SHA256':integrity['passport.json']})
+
+    @app.get('/api/v1/jobs/{job_id}/report.pdf',dependencies=[Depends(authorize)])
+    def report_pdf(job_id:str):return download_report(job_id,'pdf')
+
+    @app.get('/api/v1/jobs/{job_id}/passport',dependencies=[Depends(authorize)])
+    def passport(job_id:str):return download_report(job_id,'passport')
+
+    @app.get('/api/v1/jobs/{job_id}/annotations',dependencies=[Depends(authorize)])
+    def annotations(job_id:str):
+        get_job(job_id)
+        with annotation_lock:return {'annotations':read_annotations(settings.local,job_id)}
+
     @app.post('/api/v1/jobs/{job_id}/annotations',dependencies=[Depends(authorize)])
     async def annotate(job_id:str,request:Request):
         job=get_job(job_id)
+        if job['status']!='done':raise HTTPException(409,'Разметка доступна после успешного анализа.')
         try:item=validate_annotation(await request.json(),job['duration_sec'])
         except (ValueError,KeyError,TypeError):raise HTTPException(422,'Проверьте интервал, наблюдаемый факт и автора подтверждения.')
         if item.get('rule_id') and not any(r['id']==item['rule_id'] and r.get('verified') for r in read_json(ROOT/'config/rules.json')['rules']):
@@ -188,7 +220,8 @@ def create_app(settings=None,analyzer=None):
             splits=read_json(settings.local/'dataset/split.json')
             partition=next((name for name,ids in splits.items() if job['source_sha256'] in ids),'external')
         except OSError:pass
-        item.update(job_id=job_id,source_sha256=job['source_sha256'],source_partition=partition,training_eligible=partition=='train')
+        item.update(job_id=job_id,source_sha256=job['source_sha256'],source_partition=partition,
+                    training_eligible=partition=='train' and item.get('confirmed') is True and item.get('visibility')=='clear')
         destination=settings.local/'annotations'/('confirmed.jsonl' if item.get('confirmed') else 'proposed.jsonl')
         destination.parent.mkdir(parents=True,exist_ok=True)
         with annotation_lock:

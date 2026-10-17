@@ -1,0 +1,84 @@
+{
+  "date": "2026-10-17",
+  "application_version": "0.2.0",
+  "tests": 85,
+  "failures": 0,
+  "original_video_hashes_unchanged": 42,
+  "runtime_profile": "experimental-v2",
+  "final_api_timings": [
+    {
+      "case": "longest-final",
+      "wall_sec": 139.0,
+      "status": "done",
+      "events": 1,
+      "contract_valid": true,
+      "jpeg_valid": true,
+      "passport_hashes_valid": true,
+      "pdf_valid": true,
+      "refinement_fps": 8.0
+    },
+    {
+      "case": "negative-final",
+      "wall_sec": 21.881,
+      "status": "done",
+      "events": 0,
+      "contract_valid": true,
+      "jpeg_valid": true,
+      "passport_hashes_valid": true,
+      "pdf_valid": true,
+      "refinement_fps": 0.0
+    },
+    {
+      "case": "positive-final",
+      "wall_sec": 37.961,
+      "status": "done",
+      "events": 3,
+      "contract_valid": true,
+      "jpeg_valid": true,
+      "passport_hashes_valid": true,
+      "pdf_valid": true,
+      "refinement_fps": 8.0
+    }
+  ],
+  "longest_video_duration_sec": 142.533333,
+  "previous_stress_failure": {
+    "status": "failed",
+    "error": "processing_deadline",
+    "deadline_sec": 270,
+    "phase": "evidence",
+    "before_timestamp_reuse": true
+  },
+  "model_evaluation": {
+    "n": 8,
+    "split_status": "already_viewed_exploratory",
+    "baseline_accuracy": 0.5,
+    "candidate_accuracy": 0.625,
+    "candidate_precision": 0.5714285714285714,
+    "candidate_recall": 1.0,
+    "candidate_f1": 0.7272727272727273,
+    "confusion_matrix": [
+      [
+        1,
+        3
+      ],
+      [
+        0,
+        4
+      ]
+    ],
+    "new_angle_evaluated": false,
+    "target_85_percent_achieved": false
+  },
+  "type_artifact_trained": false,
+  "missing_confirmed_type_labels": true,
+  "normative_matching": "human_confirmed_local_registry_only",
+  "outgoing_analysis_network_blocked": true,
+  "pdf_and_passport_authenticated": true,
+  "synthetic_pdf_visual_review": true,
+  "synthetic_ui_download_and_annotation_verified": true,
+  "synthetic_ui_widths": [
+    1280,
+    390
+  ],
+  "external_deployment": false
+}

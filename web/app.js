@@ -49,13 +49,23 @@ async function renderResult(){
   $('result-title').textContent=result.verdict==='violation'?ru.resultPositive:ru.resultNegative;
   $('result-subtitle').textContent=`${review.filename||state.file?.name||'Видео'} · ${time(detail.duration_sec)} · ${result.violations.length} событий`;
   $('event-count').textContent=result.violations.length;
+  $('research-banner').textContent=detail.video_classifier_status==='experimental-v2'
+    ?'Экспериментальный классификатор: качество на новом ракурсе не подтверждено. Типы и нормативные основания требуют проверки человеком.'
+    :'Сигнал модели требует проверки человеком. Типы предлагаются только при наличии отдельно обученной модели; нормативные основания подтверждает проверяющий.';
+  $('report-feedback').textContent='Предварительный акт требует подтверждения уполномоченным сотрудником.';
   const list=$('limitations-list');list.replaceChildren();for(const text of detail.limitations||[])list.append(element('li','',text));
   const measured=detail.measurements||{};$('measurements').textContent=`Полное время: ${review.elapsed_sec??measured.analysis_wall_sec??'—'} сек · Визуальных выборок: ${measured.samples??'—'}`;
   $('seek').max=detail.duration_sec||1;state.selected=null;state.drafts={};renderEvents();renderTimeline();
   const media=await request(`/api/v1/jobs/${state.jobId}/video`);
   if(state.blob)URL.revokeObjectURL(state.blob);state.blob=URL.createObjectURL(await media.blob());$('player').src=state.blob;
   $('video-error').hidden=true;screen('result');
-  if(result.violations.length)selectEvent(0);else $('event-detail').hidden=true;
+  if(result.violations.length)selectEvent(0);else{
+    $('event-detail').hidden=true;
+    $('annotation-form').reset();$('annotation-start').value=0;$('annotation-end').value=(detail.duration_sec||0).toFixed(2);
+    $('annotation-start').max=detail.duration_sec;$('annotation-end').max=detail.duration_sec;
+    $('annotation-feedback').textContent='';
+  }
+  await renderHumanObservations();
   $('result-title').tabIndex=-1;$('result-title').focus({preventScroll:true});
   try{
     const registry=await(await request('/api/v1/rules')).json();const select=$('annotation-rule');
@@ -83,7 +93,7 @@ function renderTimeline(){
 }
 function selectEvent(index){
   const keyboardSelection=document.activeElement?.matches('.event-item');
-  if(state.selected!==null){state.drafts[state.selected]={start:$('annotation-start').value,end:$('annotation-end').value,reviewer:$('annotation-reviewer').value,type:$('annotation-type').value,fact:$('annotation-fact').value,rule:$('annotation-rule').value,confirm:$('annotation-confirm').checked};}
+  if(state.selected!==null){state.drafts[state.selected]={start:$('annotation-start').value,end:$('annotation-end').value,reviewer:$('annotation-reviewer').value,type:$('annotation-type').value,fact:$('annotation-fact').value,rule:$('annotation-rule').value,confirm:$('annotation-confirm').checked,visibility:$('annotation-visibility').value,applicability:$('annotation-applicability').checked};}
   state.selected=index;const event=state.result.violations[index],meta=reviewEvent(index),duration=state.review.review.duration_sec;
   $('player').currentTime=event.timecode_sec;$('event-detail').hidden=false;$('detail-title').textContent=event.type;
   $('detail-time').textContent=`${time(event.timecode_sec)} · фрагмент ${time(meta.start_sec??event.timecode_sec)}–${time(meta.end_sec??event.timecode_sec)}`;
@@ -101,6 +111,7 @@ function selectEvent(index){
   const draft=state.drafts[index];
   $('annotation-start').value=draft?.start??(meta.start_sec??event.timecode_sec).toFixed(2);$('annotation-end').value=draft?.end??(meta.end_sec??event.timecode_sec).toFixed(2);
   $('annotation-start').max=duration;$('annotation-end').max=duration;$('annotation-type').value=draft?.type??'';$('annotation-fact').value=draft?.fact??'';$('annotation-reviewer').value=draft?.reviewer??'';$('annotation-rule').value=draft?.rule??'';$('annotation-confirm').checked=draft?.confirm??false;$('annotation-feedback').textContent='';renderEvents();
+  $('annotation-visibility').value=draft?.visibility??'unknown';$('annotation-applicability').checked=draft?.applicability??false;
   if(keyboardSelection)$('event-list').querySelector(`[data-event-index="${index}"]`)?.focus({preventScroll:true});
 }
 $('event-sort').addEventListener('change',renderEvents);
@@ -111,7 +122,37 @@ $('new-check').addEventListener('click',()=>{state.generation++;$('player').paus
 $('close-frame').addEventListener('click',()=>$('frame-dialog').close());
 $('annotation-form').addEventListener('submit',async e=>{
   e.preventDefault();const rule=$('annotation-rule').value;
-  const annotation={start_sec:Number($('annotation-start').value),end_sec:Number($('annotation-end').value),reviewer:$('annotation-reviewer').value.trim(),type:$('annotation-type').value.trim(),observed_fact:$('annotation-fact').value.trim(),origin:'human',confirmed:$('annotation-confirm').checked,rule_id:rule||null,rule_status:rule?'proposed':'unresolved'};
-  try{await request(`/api/v1/jobs/${state.jobId}/annotations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(annotation)});$('annotation-feedback').textContent='Подтверждённая разметка сохранена локально. Ответ модели остаётся исходным.';}
+  const confirmed=$('annotation-confirm').checked,applicability=$('annotation-applicability').checked,visibility=$('annotation-visibility').value;
+  const annotation={start_sec:Number($('annotation-start').value),end_sec:Number($('annotation-end').value),reviewer:$('annotation-reviewer').value.trim(),type:$('annotation-type').value.trim(),observed_fact:$('annotation-fact').value.trim(),visibility,rule_applicability_confirmed:applicability,origin:'human',confirmed,rule_id:rule||null,rule_status:rule?(confirmed&&applicability&&visibility==='clear'?'confirmed':'proposed'):'unresolved'};
+  try{await request(`/api/v1/jobs/${state.jobId}/annotations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(annotation)});$('annotation-feedback').textContent=confirmed?'Подтверждённое наблюдение сохранено. Ответ модели остаётся исходным.':'Черновик сохранён отдельно от подтверждённой разметки.';await renderHumanObservations();}
   catch(error){$('annotation-feedback').textContent=error.message;}
 });
+
+async function renderHumanObservations(){
+  const list=$('human-observations');list.replaceChildren();
+  try{
+    const {annotations}=await(await request(`/api/v1/jobs/${state.jobId}/annotations`)).json();
+    if(!annotations.length){list.append(element('li','','Разметка ещё не сохранена.'));return;}
+    for(const item of annotations){
+      const status=item.confirmed?'Подтверждено проверяющим':'Черновик';
+      const rule=item.rule_status==='confirmed'?'Применимость правила подтверждена проверяющим.':item.rule_id?'Правило предложено, применимость не подтверждена.':'Нормативное основание не установлено.';
+      list.append(element('li','',`${status} · ${time(item.start_sec)}–${time(item.end_sec)} · ${item.type}: ${item.observed_fact} ${rule}`));
+    }
+  }catch{list.append(element('li','','Не удалось загрузить разметку. Повторите проверку соединения.'));}
+}
+
+async function downloadArtifact(kind){
+  const button=$(kind==='pdf'?'download-report':'download-passport'),generation=state.generation;
+  button.disabled=true;$('report-feedback').textContent='Подготовка документа…';
+  try{
+    const response=await request(`/api/v1/jobs/${state.jobId}/${kind==='pdf'?'report.pdf':'passport'}`);
+    if(generation!==state.generation)return;
+    const url=URL.createObjectURL(await response.blob()),link=element('a');
+    link.href=url;link.download=`video-audit-${state.jobId}.${kind==='pdf'?'pdf':'json'}`;
+    document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    $('report-feedback').textContent='Документ подготовлен. Выводы требуют подтверждения уполномоченным сотрудником.';
+  }catch(error){if(generation===state.generation)$('report-feedback').textContent=error.message;}
+  finally{button.disabled=false;}
+}
+$('download-report').addEventListener('click',()=>downloadArtifact('pdf'));
+$('download-passport').addEventListener('click',()=>downloadArtifact('passport'));
