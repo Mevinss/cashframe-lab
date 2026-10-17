@@ -14,6 +14,9 @@ class Settings:
     deadline_sec: float = 270
     max_duration_sec: float = 180
     retention_hours: int = 24
+    max_worker_rss_mb: int = 2048
+    min_free_disk_mb: int = 512
+    max_stored_jobs: int = 100
     model_directory: Path | None = None
 
     @property

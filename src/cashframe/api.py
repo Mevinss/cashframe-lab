@@ -20,6 +20,7 @@ from .storage import JobStore
 from .video import probe_video
 from .worker import Worker
 from .reporting import read_annotations,report_files
+from .readiness import RuntimeReadiness
 
 
 class UploadTooLarge(Exception):pass
@@ -34,7 +35,8 @@ class LimitBody:
             nonlocal count
             message=await receive()
             count+=len(message.get('body',b''))
-            if count>self.limit:raise UploadTooLarge()
+            limit = 16384 if scope.get('path', '').endswith('/annotations') else self.limit
+            if count>limit:raise UploadTooLarge()
             return message
         try:await self.app(scope,bounded_receive,send)
         except UploadTooLarge:await JSONResponse({'detail':'Файл превышает допустимый размер.'},status_code=413)(scope,receive,send)
@@ -44,6 +46,7 @@ def create_app(settings=None,analyzer=None):
     settings=settings or Settings()
     store=JobStore(settings.local/'jobs.sqlite')
     worker=Worker(settings,store,analyzer)
+    runtime_readiness=RuntimeReadiness(settings)
     annotation_lock=threading.Lock()
     report_lock=threading.RLock()
     jobs_dir=settings.local/'jobs';jobs_dir.mkdir(parents=True,exist_ok=True)
@@ -75,7 +78,7 @@ def create_app(settings=None,analyzer=None):
     app.add_middleware(LimitBody,limit=settings.max_upload_bytes+1024*1024)
     key_header=APIKeyHeader(name='X-API-Key',auto_error=False)
     def authorize(key=Depends(key_header)):
-        if not settings.api_key or not key or not hmac.compare_digest(key,settings.api_key):
+        if not settings.api_key or not key or not hmac.compare_digest(key.encode('utf-8'),settings.api_key.encode('utf-8')):
             raise HTTPException(401,'Неверный или отсутствующий API-ключ.')
     def get_job(jid):
         job=store.get(jid)
@@ -87,22 +90,23 @@ def create_app(settings=None,analyzer=None):
     def ready():
         if not settings.api_key:return False
         if analyzer is not None:return True
-        try:
-            config=read_json(settings.model_dir/'config.json')
-            selected=config['selected_variant']
-            if selected not in ('trained','baseline'):return False
-            if config.get('video_classifier') and (config['video_classifier']!='selected.npz' or not all((settings.model_dir/name).is_file() for name in ('selected.npz','selection-frozen.json'))):return False
-            return all(p.is_file() for p in [settings.model_dir/f'{selected}.npz',settings.local/'encoder/encoder.json',settings.local/'encoder/weights.pth'])
+        try:return runtime_readiness.check()
         except (OSError,ValueError,KeyError):return False
 
     @app.get('/health/ready')
     def health():
-        return JSONResponse({'ready':ready(),'mode':'research','taxonomy_confirmed':False},status_code=200 if ready() else 503)
+        available=ready()
+        return JSONResponse({'ready':available,'mode':'research','taxonomy_confirmed':False},status_code=200 if available else 503)
 
     @app.post('/api/v1/analyze',status_code=202,dependencies=[Depends(authorize)])
     async def analyze(request:Request):
         accepted_at=time.monotonic()
-        if not ready():raise HTTPException(503,'Модель не подготовлена. Выполните команды подготовки и обучения.')
+        if not await asyncio.to_thread(ready):raise HTTPException(503,'Модель не подготовлена. Выполните команды подготовки и обучения.')
+        cleanup()
+        if shutil.disk_usage(settings.local).free < (settings.min_free_disk_mb*1024*1024+settings.max_upload_bytes):
+            raise HTTPException(507,'Недостаточно свободного места для нового видео.')
+        if sum(p.is_dir() for p in jobs_dir.iterdir())>=settings.max_stored_jobs:
+            raise HTTPException(503,'Достигнут лимит сохранённых заданий. Выполните очистку по сроку хранения.')
         if not worker.reserve():raise HTTPException(429,'Сервис занят. Повторите запрос после завершения текущего видео.',headers={'Retry-After':'10'})
         job_id=None;started=False;upload=None;form=None
         try:
@@ -122,7 +126,7 @@ def create_app(settings=None,analyzer=None):
                 parser=MultiPartParser(request.headers,upload_stream(),max_files=1,max_fields=1)
                 try:form=await parser.parse()
                 except BaseException:
-                    # Starlette 0.48 only closes partial files on MultiPartException;
+                    # Also close partial files on disconnect/cancellation
                     # also close them on disconnect/cancellation before propagating.
                     for handle in parser._files_to_close_on_error:handle.close()
                     raise

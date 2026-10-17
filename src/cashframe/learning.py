@@ -6,9 +6,19 @@ import time
 import numpy as np
 
 from .data import read_json, write_json
+from .numerics import finite_array, finite_scalar
 
 
 def window_features(times, features, duration_sec, radius=1., stride=.5):
+    times = finite_array(times, 'sample timestamps', 1)
+    features = finite_array(features, 'encoder features', 2)
+    duration_sec = finite_scalar(duration_sec, 'duration', positive=True)
+    radius = finite_scalar(radius, 'window radius', positive=True)
+    stride = finite_scalar(stride, 'window stride', positive=True)
+    if len(times) != len(features) or np.any(np.diff(times) <= 0):
+        raise ValueError('Invalid feature timestamps')
+    if duration_sec / stride > 10000:
+        raise ValueError('Too many scoring windows')
     centers = np.unique(np.r_[np.arange(0, duration_sec, stride), duration_sec])
     rows = []
     for center in centers:
@@ -55,6 +65,7 @@ def select_threshold(scores, labels, partition='validation'):
 
 
 def sigmoid(x):
+    finite_array(x, 'classifier logits')
     return 1/(1+np.exp(-np.clip(x, -40, 40)))
 
 
@@ -66,8 +77,8 @@ def video_score(model, windows):
     point=float(model_scores(model,windows).max())
     if 'bag_coef' not in model:return point
     bag=video_features(windows)
-    bag=np.clip((bag-model['bag_mean'])/model['bag_std'],-8,8)
-    return float(sigmoid(bag@model['bag_coef']+model['bag_bias']))
+    bag=np.clip(finite_array((bag-model['bag_mean'])/model['bag_std'],'normalized video features'),-8,8)
+    return finite_scalar(sigmoid(bag@model['bag_coef']+model['bag_bias']), 'video score')
 
 
 def fit_linear(x, y, sample_weights, decay, epochs=250):
@@ -89,26 +100,68 @@ def fit_linear(x, y, sample_weights, decay, epochs=250):
     return w, b, log
 
 
-def model_scores(model, x):
+def validate_model(model):
     if model['kind'] == 'linear':
-        z = np.clip((x-model['mean'])/model['std'], -8, 8)
-        return sigmoid(z@model['coef']+float(model['bias']))
+        for key in ('mean', 'std', 'coef'):
+            finite_array(model[key], key, 1)
+        if model['mean'].shape != model['std'].shape or model['mean'].shape != model['coef'].shape:
+            raise ValueError('Classifier dimensions do not match')
+        if np.any(model['std'] <= 0):
+            raise ValueError('Invalid classifier standard deviations')
+        finite_scalar(model['bias'], 'bias')
+        bag_keys = ('bag_mean', 'bag_std', 'bag_coef', 'bag_bias')
+        if any(key in model for key in bag_keys):
+            for key in bag_keys[:3]:
+                value = finite_array(model[key], key, 1)
+                if value.size != model['mean'].size * 3:
+                    raise ValueError('Invalid video classifier dimensions')
+            if np.any(model['bag_std'] <= 0):
+                raise ValueError('Invalid video classifier standard deviations')
+            finite_scalar(model['bag_bias'], 'bag bias')
+    elif model['kind'] == 'distance':
+        normal = finite_array(model['normal_vectors'], 'normal references', 2)
+        norms=finite_array(np.linalg.norm(normal, axis=1),'reference norms')
+        if normal.shape[1] != 384 or np.any(norms < 1e-12):
+            raise ValueError('Invalid normal reference vectors')
+    else:
+        raise ValueError('Unsupported classifier kind')
+
+
+def model_scores(model, x):
+    x = finite_array(x, 'scoring windows', 2)
+    validate_model(model)
+    if model['kind'] == 'linear':
+        if x.shape[1] != len(model['mean']):
+            raise ValueError('Classifier and feature dimensions do not match')
+        z = np.clip(finite_array((x-model['mean'])/model['std'],'normalized windows'), -8, 8)
+        return finite_array(sigmoid(z@model['coef']+float(model['bias'])), 'window scores', 1)
     z = x[:, :384]
-    z = z/np.maximum(np.linalg.norm(z, axis=1, keepdims=True), 1e-12)
-    return 1-(z@model['normal_vectors'].T).max(1)
+    z = z/np.maximum(finite_array(np.linalg.norm(z, axis=1, keepdims=True),'feature norms'), 1e-12)
+    return finite_array(1-(z@model['normal_vectors'].T).max(1), 'distance scores', 1)
 
 
 def load_model(model_dir, variant=None):
     model_dir = Path(model_dir)
     config = read_json(model_dir / 'config.json')
     variant = variant or config['selected_variant']
-    archive = np.load(model_dir / f'{variant}.npz', allow_pickle=False)
-    model = {k: archive[k] for k in archive.files}
+    if variant not in ('trained', 'baseline'):
+        raise ValueError('Unsupported classifier variant')
+    with np.load(model_dir / f'{variant}.npz', allow_pickle=False) as archive:
+        model = {k: archive[k] for k in archive.files}
     model['kind'] = 'linear' if variant == 'trained' else 'distance'
-    return model, config, float(config['thresholds'][variant])
+    validate_model(model)
+    threshold = finite_scalar(config['thresholds'][variant], 'decision threshold')
+    finite_scalar(config.get('event_threshold', threshold), 'event threshold')
+    inference_window_parameters(config)
+    return model, config, threshold
 
 
-def train_experiment(manifest_path, split_path, feature_dir, output_dir):
+def inference_window_parameters(config):
+    return {'radius': finite_scalar(config.get('window_radius_sec', 1.), 'window radius', positive=True),
+            'stride': finite_scalar(config.get('window_stride_sec', .5), 'window stride', positive=True)}
+
+
+def train_experiment(manifest_path, split_path, feature_dir, output_dir, evaluate_test=True):
     start = time.perf_counter()
     manifest, split = read_json(manifest_path), read_json(split_path)
     feature_dir, output_dir = Path(feature_dir), Path(output_dir)
@@ -117,6 +170,7 @@ def train_experiment(manifest_path, split_path, feature_dir, output_dir):
         raise ValueError('Source groups leak across split partitions')
     by_id, windows = {g['group_id']:g for g in manifest}, {}
     for g in manifest:
+        if not evaluate_test and g['group_id'] not in split['train']+split['validation']:continue
         with np.load(feature_dir / (g['group_id']+'.npz'), allow_pickle=False) as sequence:
             windows[g['group_id']] = window_features(sequence['times'], sequence['values'], g['duration_sec'])
     xs, ys, sample_weights = [], [], []
@@ -175,13 +229,14 @@ def train_experiment(manifest_path, split_path, feature_dir, output_dir):
               'limitations':['Only eight held-out source videos; same staged camera scene.','Point-localization is a weak-label proxy, not complete event coverage.','Types and normative matches are unconfirmed.']}
     for name, model in [('baseline',baseline),('trained',trained)]:
         rows=[]; errors=[]
-        for gid in split['test']:
+        for gid in split['test'] if evaluate_test else []:
             centers, features=windows[gid]; scores=model_scores(model,features); peak=int(np.argmax(scores)); g=by_id[gid]
             predicted=int(video_score(model,features)>=thresholds[name])
             err=min(abs(float(centers[peak])-p) for p in g['points_sec']) if predicted and g['label'] else None
             if err is not None:errors.append(err)
             rows.append({'group_id':gid,'truth':g['label'],'prediction':predicted,'score':float(scores[peak]),'peak_sec':float(centers[peak]),'point_error_sec':err})
-        report['test'][name] = {**metrics([r['truth'] for r in rows],[r['prediction'] for r in rows]),'point_mae_on_detected_positive_sec':float(np.mean(errors)) if errors else None,'per_video':rows}
+        if evaluate_test:report['test'][name] = {**metrics([r['truth'] for r in rows],[r['prediction'] for r in rows]),'point_mae_on_detected_positive_sec':float(np.mean(errors)) if errors else None,'per_video':rows}
+    report['test_evaluated']=evaluate_test
     report['training_wall_sec']=time.perf_counter()-start
     np.savez_compressed(output_dir/'baseline.npz',normal_vectors=normal)
     np.savez_compressed(output_dir/'trained.npz',**{k:v for k,v in trained.items() if k!='kind'})

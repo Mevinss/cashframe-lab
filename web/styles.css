@@ -7,3 +7,6 @@
 .coverage-segment{position:absolute;top:0;height:100%;pointer-events:none}.coverage-sampled{background:#e9e7eb}.coverage-incomplete{background:#f0d7a4}.coverage-unknown{background:#d9d3df;border:1px dashed #9d94a6}.selected-interval{z-index:1}.event-marker{z-index:3}
 .result-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}#report-feedback{font-size:14px;color:var(--muted)}#human-observations{overflow-wrap:anywhere;padding-left:20px}#human-observations li+li{margin-top:12px}#result-view>.annotation{padding:24px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-top:24px}
 @media(max-width:700px){.result-actions{justify-content:flex-start}.result-actions button{flex:1 1 150px}.annotation input,.annotation select,.annotation textarea{font-size:16px}}
+/* Real per-frame image changes; no generated anomaly values. */
+#motion-spectrum{display:block;width:100%;height:100px;color:#52695b;cursor:crosshair}
+#motion-panel{margin-top:1rem}

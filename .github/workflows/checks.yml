@@ -17,3 +17,8 @@ jobs:
         env:
           PYTHONPATH: src
         run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test frontend failure recovery
+        run: node --test tests/frontend.test.cjs

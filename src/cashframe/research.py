@@ -5,6 +5,7 @@ reads videos, images, or test labels during model/threshold selection.
 """
 import numpy as np
 from .learning import metrics
+from .numerics import finite_array, finite_scalar
 
 
 def audit_partitions(manifest, split):
@@ -65,15 +66,20 @@ def describe_video(windows,descriptor):
     if descriptor=='mean':return x.mean(0)
     if descriptor=='mean_std':return np.r_[x.mean(0),x.std(0)]
     if descriptor=='robust':return np.r_[x.mean(0),x.std(0),np.quantile(x,.1,axis=0),np.quantile(x,.9,axis=0)]
+    if descriptor=='temporal_pyramid':
+        return np.concatenate([x.mean(0),x.std(0),*[part.mean(0) if len(part) else x[-1] for part in np.array_split(x,3)]])
+    if descriptor=='dynamics':
+        difference=np.abs(np.diff(x,axis=0)) if len(x)>1 else np.zeros_like(x)
+        return np.r_[x.mean(0),difference.mean(0),np.quantile(difference,.9,axis=0)]
     raise ValueError('Unknown descriptor')
 
 
 def _kernel(x,z,kernel,bandwidth):
-    dot=x@z.T/x.shape[1]
+    dot=finite_array(x@z.T/x.shape[1],'kernel dot products')
     if kernel=='linear':return dot
     if kernel!='rbf':raise ValueError('Unknown kernel')
     distances=np.maximum(0,(x*x).mean(1)[:,None]+(z*z).mean(1)[None,:]-2*dot)
-    return np.exp(-distances/(2*bandwidth**2))
+    return np.exp(-finite_array(distances/(2*bandwidth**2),'kernel distances'))
 
 
 def fit_video_model(windows,labels,spec):
@@ -89,9 +95,12 @@ def fit_video_model(windows,labels,spec):
 
 
 def score_videos(model,windows):
+    for name in ('mean', 'std', 'reference', 'alpha'):
+        finite_array(model[name], name)
+    if np.any(model['std'] <= 0):raise ValueError('Invalid video classifier standard deviations')
     x=np.stack([describe_video(w,str(model['descriptor'])) for w in windows])
-    z=np.clip((x-model['mean'])/model['std'],-8,8)
-    return _kernel(z,model['reference'],str(model['kernel']),float(model.get('bandwidth',1.)))@model['alpha']
+    z=np.clip(finite_array((x-model['mean'])/model['std'],'normalized video descriptor'),-8,8)
+    return finite_array(_kernel(z,model['reference'],str(model['kernel']),finite_scalar(model.get('bandwidth',1.), 'bandwidth', positive=True))@model['alpha'], 'video scores', 1)
 
 
 def candidate_specs():
@@ -139,7 +148,7 @@ def save_frozen(folder,model,threshold,metadata):
     from .data import write_json,sha256_file
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     np.savez_compressed(folder/'selected.npz',**model)
-    config={**metadata,'research_kind':'kernel_video_v2','threshold':float(threshold),
+    config={**metadata,'research_kind':metadata.get('research_kind','kernel_video_v2'),'threshold':float(threshold),
             'selected_sha256':sha256_file(folder/'selected.npz')}
     write_json(folder/'selection-frozen.json',config)
     return config
@@ -152,7 +161,7 @@ def load_frozen(folder,expected_encoder=None):
     if expected_encoder is not None and config.get('encoder')!=expected_encoder:raise ValueError('Candidate encoder/config mismatch')
     if sha256_file(folder/'selected.npz')!=config['selected_sha256']:raise ValueError('Selected model hash mismatch')
     with np.load(folder/'selected.npz',allow_pickle=False) as archive:model={key:archive[key] for key in archive.files}
-    return model,float(config['threshold']),config
+    return model,finite_scalar(config['threshold'], 'frozen decision threshold'),config
 
 
 def prepare_opt_in(base_dir,candidate_dir,target_dir):

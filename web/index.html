@@ -35,6 +35,7 @@
       </div>
     </section>
     <section id="processing-view" hidden aria-live="polite">
+      <button id="resume-poll" type="button" class="secondary" hidden>Повторно получить результат</button>
       <div class="processing-panel"><div class="activity" aria-hidden="true"></div><h1>Проверяем видео</h1><p id="processing-filename" class="filename"></p><div class="current-stage"><span>Текущий этап</span><strong id="processing-stage">Приём файла</strong></div><p id="elapsed" class="tabular">Прошло 0:00</p><p class="muted">Обработка может занять несколько минут. Оставьте эту страницу открытой.</p><p class="privacy-note">Отображается фактический этап, без расчётного процента готовности.</p></div>
     </section>
     <section id="result-view" hidden>
@@ -47,6 +48,12 @@
         </section>
         <aside class="event-panel"><div class="event-panel-heading"><h2>События <span id="event-count"></span></h2><label class="sort-label" for="event-sort">Порядок<select id="event-sort"><option value="priority">По приоритету</option><option value="time">По времени</option></select></label></div><div id="event-list" class="event-list"></div><p class="event-panel-note">Приоритет задаётся политикой команды отдельно от оценки модели.</p></aside>
       </div>
+      <section id="motion-panel" class="timeline-panel" hidden aria-label="Изменения изображения">
+        <h2>Изменения изображения по времени</h2>
+        <svg id="motion-spectrum" viewBox="0 0 1000 100" role="img" aria-label="Измеренные изменения между выборками исходного видео"><path id="motion-path" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <p class="timeline-note">Нажмите на график, чтобы перейти к фрагменту. Высота показывает относительную интенсивность изменений; движение камеры и освещение тоже влияют на неё. Это не вероятность нарушения.</p>
+      </section>
+      <p id="visibility-guard" class="research-banner"></p>
       <section id="event-detail" class="event-detail" hidden>
         <div class="detail-heading"><div><h2 id="detail-title">Выбранное событие</h2><p id="detail-time" class="tabular"></p></div><span id="detail-priority" class="badge unspecified">Приоритет не определён</span></div>
         <div class="detail-layout"><div><div id="evidence" class="evidence-grid"></div><p class="caption">Оригинальные JPEG-кадры. Нажмите на изображение, чтобы открыть его полностью.</p></div><div class="fact-panel"><h3>Что означает сигнал</h3><p id="detail-description"></p><h3>Нормативное основание</h3><p id="rule-description">Не сопоставлено: конкретный тип действия требует подтверждения.</p><p id="priority-reason" class="muted"></p></div></div>

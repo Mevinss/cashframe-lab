@@ -136,6 +136,7 @@ def _manifest(job, version_snapshot, rules, annotations):
     for index, violation in enumerate(job['result'].get('violations', [])):
         stored = stored_events[index] if index < len(stored_events) else {}
         event = {'event_index': index, 'type': _text(violation.get('type')), 'type_confirmed': False,
+                 'localization_status':_text(stored.get('localization_status','model_proposal')),
                  'timecode_sec': _number(violation.get('timecode_sec')), 'start_sec': _number(stored.get('start_sec')),
                  'end_sec': _number(stored.get('end_sec')), 'model_description': _text(violation.get('description')),
                  'evidence_frames': []}
@@ -155,6 +156,7 @@ def _manifest(job, version_snapshot, rules, annotations):
                 raise ValueError('Stored evidence timestamp is invalid')
             point = event['timecode_sec']
             role = 'event' if point is not None and abs(timestamp - point) < 1e-6 else 'before' if point is not None and timestamp < point else 'after' if point is not None else 'unknown'
+            if event['localization_status']=='unresolved':role='context'
             event['evidence_frames'].append({'timestamp_sec': timestamp, 'sha256': sha256(raw).hexdigest(),
                                              'width': width, 'height': height, 'role': role})
             event_images.append(raw)
@@ -222,14 +224,14 @@ def _render_pdf(path, manifest, images, passport_hash):
             cells = []
             for frame, raw in zip(frames[offset:offset+3], images[index][offset:offset+3]):
                 scale = min(160 / frame['width'], 128 / frame['height'])
-                label = {'before': 'До', 'event': 'Событие', 'after': 'После', 'unknown': 'Положение не установлено'}[frame['role']]
+                label = {'before': 'До', 'event': 'Событие', 'after': 'После', 'unknown': 'Положение не установлено','context':'Контекст видео'}[frame['role']]
                 cells.append([Image(BytesIO(raw), width=frame['width']*scale, height=frame['height']*scale),
                               p(f"{label} · {seconds(frame['timestamp_sec'])}", caption)])
             table = Table([cells], colWidths=[174] * len(cells), hAlign='LEFT')
             table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 4),
                                        ('RIGHTPADDING', (0, 0), (-1, -1), 4), ('BOX', (0, 0), (-1, -1), .4, colors.HexColor('#ccdcd9'))]))
             story += [table, Spacer(1, 7)]
-        for role, name in [('before', 'До'), ('event', 'Событие'), ('after', 'После')]:
+        for role, name in ([] if event['localization_status']=='unresolved' else [('before', 'До'), ('event', 'Событие'), ('after', 'После')]):
             if not any(frame['role'] == role for frame in frames):
                 story.append(p(f'Кадр «{name}» с фактической временной отметкой не сохранён.', small))
         for frame in frames:

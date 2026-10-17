@@ -4,7 +4,17 @@ from .event_labels import is_specific_type
 
 
 def validate_annotation(item, duration_sec):
-    item = dict(item)
+    allowed = {'start_sec', 'end_sec', 'visibility', 'rule_status', 'rule_applicability_confirmed',
+               'confirmed', 'origin', 'reviewer', 'observed_fact', 'type', 'rule_id'}
+    server_fields = {'job_id', 'source_sha256', 'source_partition', 'training_eligible', 'saved_at'}
+    if not isinstance(item, dict) or set(item) - allowed - server_fields:
+        raise ValueError('Unknown annotation fields')
+    item = {key: value for key, value in item.items() if key in allowed}
+    if item.get('origin', 'human') not in ('human', 'automatic'):
+        raise ValueError('Invalid annotation origin')
+    rule_id = item.get('rule_id')
+    if rule_id is not None and (not isinstance(rule_id, str) or len(rule_id) > 100):
+        raise ValueError('Invalid rule identifier')
     start, end = float(item['start_sec']), float(item['end_sec'])
     visibility=item.get('visibility','unknown')
     rule_status=item.get('rule_status','unresolved')

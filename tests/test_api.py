@@ -153,4 +153,5 @@ class ApiTests(unittest.TestCase):
         with TestClient(create_app(self.settings)) as client:
             self.assertEqual(client.get('/health/ready').status_code,503)
             (model/'selected.npz').write_bytes(b'fixture');(model/'selection-frozen.json').write_text('{}')
-            self.assertEqual(client.get('/health/ready').status_code,200)
+            # File presence is insufficient: these fixtures are not loadable models.
+            self.assertEqual(client.get('/health/ready').status_code,503)

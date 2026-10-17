@@ -11,6 +11,18 @@ from cashframe.video import probe_video, iter_samples, evidence_frame, validate_
 
 
 class VideoTests(unittest.TestCase):
+    def test_batch_evidence_matches_single_frame_pts_and_decodes_once(self):
+        from cashframe.video import evidence_frames,frame_times
+        from unittest.mock import patch
+        import cashframe.video as module
+        requested=[0,.5,.9,.5]
+        times=frame_times(self.path)
+        expected=[evidence_frame(self.path,t,times=times) for t in requested]
+        with patch('cashframe.video.subprocess.run',wraps=module.subprocess.run) as run:
+            actual=evidence_frames(self.path,requested,times=times)
+        self.assertEqual(run.call_count,1)
+        self.assertEqual(actual,expected)
+
     def setUp(self):
         self.temp = TemporaryDirectory()
         self.path = Path(self.temp.name) / 'sample.mov'

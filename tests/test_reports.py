@@ -42,6 +42,20 @@ def synthetic_job(positive=True):
 
 
 class ReportTests(unittest.TestCase):
+    def test_unlocalized_video_evidence_is_labeled_as_context(self):
+        job=synthetic_job();job['review']['events'][0]['localization_status']='unresolved'
+        manifest,_=reports._manifest(job,None,[],[])
+        self.assertEqual({frame['role'] for frame in manifest['events'][0]['evidence_frames']},{'context'})
+
+    def test_optional_preview_status_does_not_change_report_revision(self):
+        from cashframe.reporting import report_files
+        with tempfile.TemporaryDirectory() as temporary:
+            job=synthetic_job();job['review']['preview_status']='pending'
+            first,_=report_files(job,Path(temporary),[],[])
+            job['review']['preview_status']='unavailable'
+            second,_=report_files(job,Path(temporary),[],[])
+            self.assertEqual(first,second)
+
     def render(self, job, **kwargs):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

@@ -21,12 +21,16 @@ def main():
     train.add_argument('--split', type=Path, default=Path('local/dataset/split.json'))
     train.add_argument('--features', type=Path, default=Path('local/features'))
     train.add_argument('--output', type=Path, default=Path('local/experiment'))
+    train.add_argument('--skip-test', action='store_true', help='Restore/train without reading the already-viewed test features')
     analyze = commands.add_parser('analyze')
     analyze.add_argument('--input', type=Path, required=True)
     analyze.add_argument('--output', type=Path, required=True)
     analyze.add_argument('--model', type=Path, default=Path('local/experiment'))
     analyze.add_argument('--encoder', type=Path, default=Path('local/encoder'))
     analyze.add_argument('--budget-sec',type=float,default=240)
+    preview = commands.add_parser('preview')
+    preview.add_argument('--input', type=Path, required=True)
+    preview.add_argument('--output', type=Path, required=True)
     serve = commands.add_parser('serve')
     serve.add_argument('--host', default='127.0.0.1')
     serve.add_argument('--port', type=int, default=8000)
@@ -42,7 +46,7 @@ def main():
         extract_dataset(args.manifest, args.encoder, args.output)
     elif args.command == 'train':
         from .learning import train_experiment
-        report = train_experiment(args.manifest, args.split, args.features, args.output)
+        report = train_experiment(args.manifest, args.split, args.features, args.output, evaluate_test=not args.skip_test)
         print(json.dumps({k:v for k,v in report.items() if k!='test'}, ensure_ascii=False, indent=2))
         print(json.dumps({k:{a:b for a,b in v.items() if a!='per_video'} for k,v in report['test'].items()},indent=2))
     elif args.command == 'analyze':
@@ -55,6 +59,11 @@ def main():
         write_json(args.output/'result.json',result)
         write_json(args.output/'review.json',review)
         print(json.dumps(review['measurements']))
+    elif args.command == 'preview':
+        from .video import browser_copy
+        temporary=args.output.with_name('preview-building.mp4')
+        browser_copy(args.input,temporary)
+        temporary.replace(args.output)
     elif args.command == 'serve':
         import uvicorn
         from .api import create_app

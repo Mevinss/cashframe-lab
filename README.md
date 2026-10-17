@@ -6,6 +6,8 @@
 
 ## Проверенные результаты
 
+Повторное восстановление окружения, исправления надёжности и новые реальные измерения описаны в [отчёте реализации](docs/implementation-results.md). Цифры ниже относятся к первоначальному эксперименту; они не заменяют независимую оценку нового ракурса.
+
 - 42 исправных MOV, 40 уникальных источников. После группировки дублей: 21 положительный, 19 отрицательных. Фиксированное разбиение 24/8/8, seed 42.
 - Замороженный DINOv2 ViT-S/14; реально обучен классификатор на 1 101 размеченном окне, из них 39 положительных. По 250 шагов Adam на конфигурацию, сохранены веса и журнал потерь. Дополнительный классификатор видео не улучшил validation и выключен.
 - Самый длинный ролик, 142,53 секунды, обработан отдельным API-клиентом за **138,51 секунды**. Схема, временные отметки и JPEG проверены. Исходящая сеть в анализаторе блокируется; FFmpeg ограничен локальными протоколами.
@@ -16,20 +18,22 @@
 Нужны Python 3.11 и FFmpeg/FFprobe в PATH. Интернет нужен только для установки и подготовки. Проверено на CPU с около 8 ГБ RAM. Один worker; фоновые приложения и свободная память влияют на скорость.
 
 ```powershell
-cd D:\Datathon
+cd C:\Users\nurda\Downloads\Datathon\cashframe-lab
 .\scripts\setup.ps1
 $env:PYTHONPATH='src'
+$env:TORCH_HOME=Join-Path $PWD 'local/torch-cache'
 $py='.\.venv\Scripts\python.exe'
 & $py -m cashframe.cli prepare-encoder
-& $py -m cashframe.cli audit --videos D:\open\open\videos --labels D:\open\open\open_labels.xlsx
+& $py scripts/prepare_local_data.py "$env:USERPROFILE\Downloads\open.zip"
+& $py -m cashframe.cli audit --videos local/source/open/videos --labels local/source/open/open_labels.xlsx
 & $py -m cashframe.cli features
-& $py -m cashframe.cli train
+& $py -m cashframe.cli train --skip-test
 .\scripts\start.ps1
 ```
 
-На текущей машине веса и результаты уже подготовлены в `local/`. Для повторного запуска достаточно `scripts/start.ps1`. Без `.venv` скрипт использует существующий Python с установленными зависимостями.
+На этой рабочей копии `.venv`, `local/encoder`, `local/experiment` и `local/experiment-v2` восстановлены. Для повторного запуска достаточно `scripts/start.ps1`; для v2 добавьте `-ModelDirectory local/experiment-v2`. Команды подготовки выполняются один раз; распаковщик отказывается перезаписывать уже существующие исходники. На другой машине артефакты необходимо подготовить или приватно перенести.
 
-Откройте [интерфейс](http://127.0.0.1:8000). Ключ для ввода находится в `local/api-key.txt`; при первом запуске создаётся случайный ключ. Он не встроен в JavaScript и не входит в Git. Альтернатива — `CASHFRAME_API_KEY` в окружении или личном `.env.local`.
+Откройте [интерфейс](http://127.0.0.1:8000). Используется заданный `CASHFRAME_API_KEY` из окружения или env-файла. Если он пуст, launcher создаёт случайный ключ в игнорируемом `local/api-key.txt`. Ключ не встроен в JavaScript; личные секреты храните в `.env.local` или окружении.
 
 Для коллег: [короткая инструкция](docs/team-setup.md). Общий `.env` уже в репозитории и читается через `start.cmd` или `scripts/start.ps1`. Двойной щелчок по `setup.cmd` устанавливает зависимости, по `start.cmd` — запускает сервер. Для анализа на новой машине нужно отдельно перенести подготовленные веса или выполнить обучение из инструкции выше.
 

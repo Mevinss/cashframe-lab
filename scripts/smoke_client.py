@@ -18,10 +18,13 @@ def main():
     parser.add_argument('--key-file',type=Path,default=Path('local/api-key.txt'))
     parser.add_argument('--output',type=Path,default=Path('local/api-smoke.json'))
     args=parser.parse_args()
-    key=os.getenv('CASHFRAME_API_KEY') or args.key_file.read_text().strip()
+    from cashframe.launcher import load_environment
+    from cashframe.config import ROOT
+    key=os.getenv('CASHFRAME_API_KEY') or (args.key_file.read_text().strip() if args.key_file.exists() else load_environment(ROOT)['CASHFRAME_API_KEY'])
+    if not key:raise ValueError('Provide CASHFRAME_API_KEY or an existing --key-file')
     headers={'X-API-Key':key}
     start=time.perf_counter()
-    with httpx.Client(base_url=args.url,timeout=60) as client:
+    with httpx.Client(base_url=args.url,timeout=60,trust_env=False) as client:
         assert client.get('/api/v1/jobs/no',headers={'X-API-Key':'wrong'}).status_code==401
         with args.video.open('rb') as stream:
             response=client.post('/api/v1/analyze',headers=headers,files={'file':(args.video.name,stream,'video/quicktime')})

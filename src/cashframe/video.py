@@ -6,9 +6,11 @@ import base64
 import json
 import subprocess
 import tempfile
+import io
 from fractions import Fraction
 
 import numpy as np
+from PIL import Image
 
 
 @dataclass(frozen=True)
@@ -111,14 +113,38 @@ def iter_samples(path, sample_fps=4., size=224, timestamps=None):
 
 
 def evidence_frame(path, timestamp_sec, times=None):
+    return evidence_frames(path, [timestamp_sec], times=times)[0]
+
+
+def evidence_frames(path, timestamps, times=None):
+    """Decode once, selecting original frame indices; retain their original PTS."""
+    if not timestamps or len(timestamps) > 36:
+        raise ValueError('Evidence request must contain 1..36 frames')
     times = frame_times(path) if times is None else times
-    index = min(len(times) - 1, bisect_left(times, times[0] + max(0, timestamp_sec)))
-    command = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-an',
-               '-vf', f'select=eq(n\\,{index})', '-frames:v', '1', '-q:v', '2', '-f', 'image2pipe', '-vcodec', 'mjpeg', 'pipe:1']
-    result = subprocess.run(command, capture_output=True, timeout=45, check=True)
-    if not result.stdout.startswith(b'\xff\xd8'):
-        raise ValueError('Evidence extraction did not return JPEG')
-    return {'timestamp_sec': round(times[index] - times[0], 6), 'image_base64': base64.b64encode(result.stdout).decode('ascii')}
+    if not len(times) or not np.isfinite(times).all() or not np.isfinite(timestamps).all():
+        raise ValueError('Evidence timestamps must be finite')
+    indices = [min(len(times) - 1, bisect_left(times, times[0] + max(0, t))) for t in timestamps]
+    unique = sorted(set(indices))
+    select = 'select=' + '+'.join(f'eq(n\\,{index})' for index in unique)
+    frames = {}
+    with tempfile.TemporaryDirectory(prefix='cashframe-evidence-') as temporary:
+        command = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-protocol_whitelist', 'file,pipe',
+                   '-i', str(path), '-an', '-vf', select, '-fps_mode', 'vfr', '-frames:v', str(len(unique)),
+                   '-q:v', '2', '-threads', '1', str(Path(temporary) / '%03d.jpg')]
+        subprocess.run(command, capture_output=True, timeout=45, check=True)
+        total_bytes = 0
+        for number, index in enumerate(unique, 1):
+            image_path = Path(temporary) / f'{number:03d}.jpg'
+            total_bytes += image_path.stat().st_size
+            if total_bytes > 24 * 1024 * 1024:
+                raise ValueError('Evidence image budget exceeded')
+            data = image_path.read_bytes()
+            with Image.open(io.BytesIO(data)) as image:
+                if image.format != 'JPEG':raise ValueError('Evidence is not JPEG')
+                image.verify()
+            frames[index] = {'timestamp_sec': round(times[index] - times[0], 6),
+                             'image_base64': base64.b64encode(data).decode('ascii')}
+    return [frames[index] for index in indices]
 
 
 def browser_copy(path, output):

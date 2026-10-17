@@ -10,6 +10,7 @@ import numpy as np
 
 from .data import read_json, sha256_file, write_json
 from .video import iter_samples,frame_times
+from .numerics import finite_array
 
 REVISION = '7764ea0f912e53c92e82eb78a2a1631e92725fc8'
 MODEL_NAME = 'dinov2_vits14'
@@ -21,6 +22,7 @@ class FeatureSequence:
     values: np.ndarray
     wall_sec: float
     source_times: list | None = None
+    observations: list | None = None
 
 
 def prepare_encoder(output_dir):
@@ -53,7 +55,9 @@ class Encoder:
         if sha256_file(self.path / 'weights.pth') != self.config['weights_sha256']:
             raise ValueError('Encoder weights hash mismatch')
         for relative, digest in self.config['source_files'].items():
-            if sha256_file(self.path / 'source' / relative) != digest:
+            source_root=(self.path / 'source').resolve()
+            source_file=(source_root / relative.replace('\\','/')).resolve()
+            if source_root not in source_file.parents or sha256_file(source_file) != digest:
                 raise ValueError('Encoder source hash mismatch')
         torch.set_num_threads(self.config['threads'])
         with warnings.catch_warnings():
@@ -69,20 +73,24 @@ class Encoder:
         x = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0).float().div_(255)
         with torch.inference_mode():
             vector = self.model((x - self.mean) / self.std).numpy()[0]
-        return vector.astype(np.float32)
+        return finite_array(vector, 'DINOv2 embedding', 1).astype(np.float32)
 
 
 def extract_features(path, encoder, sample_fps=None):
+    from .visual_quality import inspect_sample
     start = time.perf_counter()
     times, vectors = [], []
     fps = sample_fps or encoder.config['sample_fps']
     source_times=frame_times(path)
+    observations=[];previous=None;previous_time=None
     for timestamp, image in iter_samples(path, fps, encoder.config['input_size'],timestamps=source_times):
+        previous,quality=inspect_sample(image,previous,timestamp-previous_time if previous_time is not None else None)
+        observations.append({'timestamp_sec':float(timestamp),**quality});previous_time=timestamp
         times.append(timestamp)
         vectors.append(encoder.encode(image))
     if not vectors:
         raise ValueError('No visual samples could be extracted')
-    return FeatureSequence(np.asarray(times, dtype=np.float64), np.stack(vectors), time.perf_counter() - start,source_times)
+    return FeatureSequence(np.asarray(times, dtype=np.float64), np.stack(vectors), time.perf_counter() - start,source_times,observations)
 
 
 def extract_dataset(manifest_path, encoder_dir, output_dir):

@@ -3,18 +3,46 @@ import {ru} from './i18n.ru.js';
 const $=id=>document.getElementById(id);
 const state={file:null,key:'',jobId:null,result:null,review:null,selected:null,blob:null,timer:null,generation:0,drafts:{}};
 const time=value=>`${Math.floor(Math.max(0,value||0)/60)}:${String(Math.floor(Math.max(0,value||0)%60)).padStart(2,'0')}`;
-const preciseTime=value=>`${time(value)}.${String(Math.round(((value||0)%1)*100)).padStart(2,'0')}`;
+const preciseTime=value=>{const ticks=Math.round(Math.max(0,Number(value)||0)*100);return `${time(ticks/100)}.${String(ticks%100).padStart(2,'0')}`;};
 function message(text){$('notice').textContent=text;$('notice').hidden=!text;}
 function screen(name){for(const view of ['upload','processing','result']){$(`${view}-view`).hidden=view!==name;const step=$(`step-${view}`);if(view===name)step.setAttribute('aria-current','step');else step.removeAttribute('aria-current');}}
 function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
 function controls(){ $('analyze-button').disabled=!(state.file&&$('api-key').value.trim()); }
 function setFile(file){state.file=file||null;$('file-summary').hidden=!file;if(file){$('file-name').textContent=file.name;$('file-size').textContent=`${(file.size/1024/1024).toFixed(1)} МБ`;}controls();}
 async function request(path,options={}){
-  let response;
-  try{response=await fetch(path,{...options,headers:{'X-API-Key':state.key,...options.headers}});}catch{throw new Error(ru.requestFailed);}
-  if(!response.ok){let detail;try{detail=(await response.json()).detail;}catch{}throw new Error(typeof detail==='string'?detail:`Ошибка сервиса (${response.status}). Повторите попытку.`);}
-  return response;
+  const {timeoutMs=15000,retries=options.method&&options.method!=='GET'?0:2,...fetchOptions}=options;
+  for(let attempt=0;;attempt++){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const response=await fetch(path,{...fetchOptions,signal:controller.signal,headers:{'X-API-Key':state.key,...options.headers}});
+      const body=await response.arrayBuffer();
+      if(!response.ok){let detail;try{detail=JSON.parse(new TextDecoder().decode(body)).detail;}catch{}const error=new Error(typeof detail==='string'?detail:`Ошибка сервиса (${response.status}). Повторите попытку.`);error.status=response.status;throw error;}
+      return new Response(body,{status:response.status,headers:response.headers});
+    }catch(error){
+      if(attempt>=retries||(error.status&&error.status<500&&error.status!==429)){if(!error.status)error.message=ru.requestFailed;throw error;}
+    }finally{clearTimeout(timer);}
+    await new Promise(resolve=>setTimeout(resolve,500*2**attempt));
+  }
 }
+async function pollJob(generation){
+  const deadline=Date.now()+360000;
+  $('resume-poll').hidden=true;
+  while(generation===state.generation){
+    if(Date.now()>deadline)throw new Error('Ожидание прервано. Можно повторно получить результат сохранённого задания.');
+    let job;
+    try{job=await(await request(`/api/v1/jobs/${state.jobId}`)).json();}
+    catch(error){if(error.status===401||error.status===404)throw error;message('Связь прервана. Повторяем получение результата…');await new Promise(resolve=>setTimeout(resolve,2000));continue;}
+    if(generation!==state.generation)return;
+    let meta={review:{duration_sec:0,events:[]}};
+    try{meta=await(await request(`/api/v1/jobs/${state.jobId}/review`,{retries:0})).json();}catch{/* Jury result is independently available. */}
+    if(generation!==state.generation)return;
+    $('processing-stage').textContent=ru.stages[meta.stage]||'Обработка видео';
+    if(job.status==='failed')throw new Error(ru.errors[job.error]||ru.errors.analysis_failed);
+    if(job.status==='done'){message('');state.result=job;state.review=meta;await renderResult();return;}
+    await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+}
+$('resume-poll').addEventListener('click',async()=>{message('');try{await pollJob(state.generation);}catch(error){message(error.message);$('resume-poll').hidden=false;}});
 $('api-key').addEventListener('input',controls);
 $('video-file').addEventListener('change',e=>setFile(e.target.files[0]));
 $('remove-file').addEventListener('click',()=>{$('video-file').value='';setFile(null);});
@@ -26,21 +54,15 @@ $('upload-form').addEventListener('submit',async e=>{
   if(!/\.(mov|mp4)$/i.test(state.file.name)){message('Выберите видео в формате MOV или MP4.');return;}
   if(state.file.size>100*1024*1024){message('Размер видео превышает 100 МБ. Выберите файл меньшего размера.');return;}
   state.key=$('api-key').value.trim();state.generation++;const generation=state.generation;
+  state.jobId=null;state.result=null;$('resume-poll').hidden=true;
   screen('processing');$('processing-stage').textContent=ru.stages.accepted;$('processing-filename').textContent=state.file.name;
   const start=Date.now();state.timer=setInterval(()=>{$('elapsed').textContent=`Прошло ${time((Date.now()-start)/1000)}`;},1000);
   try{
     const form=new FormData();form.append('file',state.file);
-    const response=await request('/api/v1/analyze',{method:'POST',body:form});
+    const response=await request('/api/v1/analyze',{method:'POST',body:form,timeoutMs:270000});
     state.jobId=(await response.json()).job_id;
-    while(generation===state.generation){
-      const job=await(await request(`/api/v1/jobs/${state.jobId}`)).json();
-      const meta=await(await request(`/api/v1/jobs/${state.jobId}/review`)).json();
-      $('processing-stage').textContent=ru.stages[meta.stage]||'Обработка видео';
-      if(job.status==='failed')throw new Error(ru.errors[job.error]||ru.errors.analysis_failed);
-      if(job.status==='done'){state.result=job;state.review=meta;await renderResult();break;}
-      await new Promise(resolve=>setTimeout(resolve,1000));
-    }
-  }catch(error){message(error.message);screen('upload');}
+    await pollJob(generation);
+  }catch(error){message(error.message);if(state.jobId){$('resume-poll').hidden=false;}else screen('upload');}
   finally{clearInterval(state.timer);}
 });
 
@@ -56,8 +78,9 @@ async function renderResult(){
   const list=$('limitations-list');list.replaceChildren();for(const text of detail.limitations||[])list.append(element('li','',text));
   const measured=detail.measurements||{};$('measurements').textContent=`Полное время: ${review.elapsed_sec??measured.analysis_wall_sec??'—'} сек · Визуальных выборок: ${measured.samples??'—'}`;
   $('seek').max=detail.duration_sec||1;state.selected=null;state.drafts={};renderEvents();renderTimeline();
-  const media=await request(`/api/v1/jobs/${state.jobId}/video`);
-  if(state.blob)URL.revokeObjectURL(state.blob);state.blob=URL.createObjectURL(await media.blob());$('player').src=state.blob;
+  renderMotion(detail);
+  $('player').removeAttribute('src');
+  if(state.blob){URL.revokeObjectURL(state.blob);state.blob=null;}
   $('video-error').hidden=true;screen('result');
   if(result.violations.length)selectEvent(0);else{
     $('event-detail').hidden=true;
@@ -65,6 +88,7 @@ async function renderResult(){
     $('annotation-start').max=detail.duration_sec;$('annotation-end').max=detail.duration_sec;
     $('annotation-feedback').textContent='';
   }
+  void loadPreview(state.generation,state.jobId);
   await renderHumanObservations();
   $('result-title').tabIndex=-1;$('result-title').focus({preventScroll:true});
   try{
@@ -72,6 +96,29 @@ async function renderResult(){
     select.replaceChildren(element('option','','Основание пока не установлено'));select.firstElementChild.value='';
     for(const rule of registry.rules||[]){const option=element('option','',`${rule.section} — ${rule.title}`);option.value=rule.id;select.append(option);}
   }catch{/* Rules remain explicitly unassigned when the registry is unavailable. */}
+}
+function renderMotion(detail){
+  const samples=(detail.motion_spectrum?.samples||[]).filter(row=>Number.isFinite(row.image_change_per_sec));
+  $('motion-panel').hidden=!samples.length;$('motion-path').setAttribute('d','');
+  if(samples.length){const peak=Math.max(...samples.map(row=>row.image_change_per_sec),.000001),duration=detail.duration_sec||1;
+    $('motion-path').setAttribute('d',samples.map((row,i)=>`${i?'L':'M'}${(1000*row.timestamp_sec/duration).toFixed(2)},${(95-90*row.image_change_per_sec/peak).toFixed(2)}`).join(' '));}
+  const guard=detail.visibility_guard;
+  $('visibility-guard').textContent=guard?`Качество изображения: ${guard.flagged_samples} из ${guard.sample_count} выборок имеют технические предупреждения. Видимость конкретного действия подтверждает проверяющий.`:'Видимость действия не оценена. Подтверждение требует просмотра исходного фрагмента.';
+}
+$('motion-spectrum').addEventListener('click',event=>{const box=$('motion-spectrum').getBoundingClientRect(),duration=state.review?.review?.duration_sec||0;const target=Math.max(0,Math.min(1,(event.clientX-box.left)/box.width))*duration;$('player').currentTime=target;$('seek').value=target;});
+async function loadPreview(generation,jobId){
+  for(let attempt=0;attempt<12&&generation===state.generation;attempt++){
+    try{
+      const media=await request(`/api/v1/jobs/${jobId}/video`,{retries:0});
+      const blob=await media.blob();if(generation!==state.generation)return;
+      state.blob=URL.createObjectURL(blob);$('player').src=state.blob;$('video-error').hidden=true;return;
+    }catch(error){
+      if(generation!==state.generation)return;
+      $('video-error').hidden=false;
+      if(error.status&&error.status!==409)return;
+    }
+    await new Promise(resolve=>setTimeout(resolve,2000));
+  }
 }
 function reviewEvent(index){return state.review?.review?.events?.[index]||{};}
 function renderEvents(){
@@ -86,7 +133,8 @@ function renderEvents(){
   }
 }
 function renderTimeline(){
-  for(const node of $('timeline').querySelectorAll('.event-marker,.coverage-segment'))node.remove();const duration=state.review.review.duration_sec;
+  $('selected-interval').hidden=true;$('selected-interval').style.left='0%';$('selected-interval').style.width='0%';$('seek').value=0;$('playhead').style.left='0%';
+  for(const node of $('timeline').querySelectorAll('.event-marker,.coverage-segment'))node.remove();const duration=state.review.review.duration_sec||1;
   const intervals=state.review.review.coverage?.length?state.review.review.coverage:[{start_sec:0,end_sec:duration,status:'unknown'}];
   for(const interval of intervals){const status=['sampled','incomplete','unknown'].includes(interval.status)?interval.status:'unknown';const segment=element('div',`coverage-segment coverage-${status}`);segment.style.left=`${100*interval.start_sec/duration}%`;segment.style.width=`${100*(interval.end_sec-interval.start_sec)/duration}%`;segment.setAttribute('role','img');segment.setAttribute('aria-label',`${time(interval.start_sec)}–${time(interval.end_sec)}: ${status==='sampled'?'выборочный анализ, видимость не оценена':status==='incomplete'?'неполный анализ':'состояние покрытия неизвестно'}`);$('timeline').prepend(segment);}
   state.result.violations.forEach((event,i)=>{const marker=element('button','event-marker');marker.type='button';marker.style.left=`${Math.min(99,100*event.timecode_sec/duration)}%`;marker.setAttribute('aria-label',`Событие ${i+1}, ${time(event.timecode_sec)}`);marker.title=`Событие ${i+1} · ${time(event.timecode_sec)}`;marker.addEventListener('click',()=>selectEvent(i));$('timeline').append(marker);});
@@ -94,7 +142,7 @@ function renderTimeline(){
 function selectEvent(index){
   const keyboardSelection=document.activeElement?.matches('.event-item');
   if(state.selected!==null){state.drafts[state.selected]={start:$('annotation-start').value,end:$('annotation-end').value,reviewer:$('annotation-reviewer').value,type:$('annotation-type').value,fact:$('annotation-fact').value,rule:$('annotation-rule').value,confirm:$('annotation-confirm').checked,visibility:$('annotation-visibility').value,applicability:$('annotation-applicability').checked};}
-  state.selected=index;const event=state.result.violations[index],meta=reviewEvent(index),duration=state.review.review.duration_sec;
+  state.selected=index;const event=state.result.violations[index],meta=reviewEvent(index),duration=state.review.review.duration_sec||1;
   $('player').currentTime=event.timecode_sec;$('event-detail').hidden=false;$('detail-title').textContent=event.type;
   $('detail-time').textContent=`${time(event.timecode_sec)} · фрагмент ${time(meta.start_sec??event.timecode_sec)}–${time(meta.end_sec??event.timecode_sec)}`;
   const priority=meta.priority||'unspecified';$('detail-priority').className=`badge ${priority}`;$('detail-priority').textContent=ru.priority[priority]||ru.priority.unspecified;
@@ -106,7 +154,7 @@ function selectEvent(index){
     const img=element('img');img.src=`data:image/jpeg;base64,${frame.image_base64}`;img.alt=`Оригинальный кадр, ${preciseTime(frame.timestamp_sec)}`;
     button.append(img);button.addEventListener('click',()=>{$('full-frame').src=img.src;$('frame-dialog').showModal();});
     const position=frame.timestamp_sec<event.timecode_sec-.05?0:frame.timestamp_sec>event.timecode_sec+.05?2:1;
-    figure.append(button,element('figcaption','',`${ru.frames[position]} · ${preciseTime(frame.timestamp_sec)}`));$('evidence').append(figure);
+    figure.append(button,element('figcaption','',`${meta.localization_status==='unresolved'?'Контекст видео':ru.frames[position]} · ${preciseTime(frame.timestamp_sec)}`));$('evidence').append(figure);
   });
   const draft=state.drafts[index];
   $('annotation-start').value=draft?.start??(meta.start_sec??event.timecode_sec).toFixed(2);$('annotation-end').value=draft?.end??(meta.end_sec??event.timecode_sec).toFixed(2);

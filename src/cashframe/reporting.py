@@ -23,7 +23,8 @@ def read_annotations(local, job_id):
 def report_files(job, folder, rules, annotations):
     if job['status']!='done':raise ValueError('Analysis is not complete')
     from .reports import generate_report
-    material={'result':job['result'],'review':job.get('review'), 'annotations':annotations,
+    stable_review={key:value for key,value in (job.get('review') or {}).items() if key!='preview_status'}
+    material={'result':job['result'],'review':stable_review, 'annotations':annotations,
               'source_sha256':job.get('source_sha256'),'rules':rules}
     revision=hashlib.sha256(json.dumps(material,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
     reports=Path(folder)/'reports';reports.mkdir(exist_ok=True)
