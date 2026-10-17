@@ -1,7 +1,7 @@
 import {ru} from './i18n.ru.js';
 
 const $=id=>document.getElementById(id);
-const state={file:null,key:'',jobId:null,result:null,review:null,selected:null,blob:null,timer:null,generation:0};
+const state={file:null,key:'',jobId:null,result:null,review:null,selected:null,blob:null,timer:null,generation:0,drafts:{}};
 const time=value=>`${Math.floor(Math.max(0,value||0)/60)}:${String(Math.floor(Math.max(0,value||0)%60)).padStart(2,'0')}`;
 const preciseTime=value=>`${time(value)}.${String(Math.round(((value||0)%1)*100)).padStart(2,'0')}`;
 function message(text){$('notice').textContent=text;$('notice').hidden=!text;}
@@ -51,11 +51,12 @@ async function renderResult(){
   $('event-count').textContent=result.violations.length;
   const list=$('limitations-list');list.replaceChildren();for(const text of detail.limitations||[])list.append(element('li','',text));
   const measured=detail.measurements||{};$('measurements').textContent=`Полное время: ${review.elapsed_sec??measured.analysis_wall_sec??'—'} сек · Визуальных выборок: ${measured.samples??'—'}`;
-  $('seek').max=detail.duration_sec||1;state.selected=null;renderEvents();renderTimeline();
+  $('seek').max=detail.duration_sec||1;state.selected=null;state.drafts={};renderEvents();renderTimeline();
   const media=await request(`/api/v1/jobs/${state.jobId}/video`);
   if(state.blob)URL.revokeObjectURL(state.blob);state.blob=URL.createObjectURL(await media.blob());$('player').src=state.blob;
   $('video-error').hidden=true;screen('result');
   if(result.violations.length)selectEvent(0);else $('event-detail').hidden=true;
+  $('result-title').tabIndex=-1;$('result-title').focus({preventScroll:true});
   try{
     const registry=await(await request('/api/v1/rules')).json();const select=$('annotation-rule');
     select.replaceChildren(element('option','','Основание пока не установлено'));select.firstElementChild.value='';
@@ -70,15 +71,19 @@ function renderEvents(){
   indices.sort((a,b)=>$('event-sort').value==='priority'?(rank[reviewEvent(a).priority]??3)-(rank[reviewEvent(b).priority]??3)||events[a].timecode_sec-events[b].timecode_sec:events[a].timecode_sec-events[b].timecode_sec);
   for(const i of indices){
     const event=events[i],meta=reviewEvent(i),priority=meta.priority||'unspecified';const button=element('button','event-item');button.type='button';
-    button.setAttribute('aria-pressed',String(state.selected===i));button.append(element('span','event-time tabular',time(event.timecode_sec)),element('strong','',event.type),element('span',`badge ${priority}`,ru.priority[priority]||ru.priority.unspecified));
+    button.dataset.eventIndex=i;button.setAttribute('aria-pressed',String(state.selected===i));button.append(element('span','event-time tabular',time(event.timecode_sec)),element('strong','',event.type),element('span',`badge ${priority}`,ru.priority[priority]||ru.priority.unspecified));
     button.addEventListener('click',()=>selectEvent(i));list.append(button);
   }
 }
 function renderTimeline(){
-  for(const node of $('timeline').querySelectorAll('.event-marker'))node.remove();const duration=state.review.review.duration_sec;
+  for(const node of $('timeline').querySelectorAll('.event-marker,.coverage-segment'))node.remove();const duration=state.review.review.duration_sec;
+  const intervals=state.review.review.coverage?.length?state.review.review.coverage:[{start_sec:0,end_sec:duration,status:'unknown'}];
+  for(const interval of intervals){const status=['sampled','incomplete','unknown'].includes(interval.status)?interval.status:'unknown';const segment=element('div',`coverage-segment coverage-${status}`);segment.style.left=`${100*interval.start_sec/duration}%`;segment.style.width=`${100*(interval.end_sec-interval.start_sec)/duration}%`;segment.setAttribute('role','img');segment.setAttribute('aria-label',`${time(interval.start_sec)}–${time(interval.end_sec)}: ${status==='sampled'?'выборочный анализ, видимость не оценена':status==='incomplete'?'неполный анализ':'состояние покрытия неизвестно'}`);$('timeline').prepend(segment);}
   state.result.violations.forEach((event,i)=>{const marker=element('button','event-marker');marker.type='button';marker.style.left=`${Math.min(99,100*event.timecode_sec/duration)}%`;marker.setAttribute('aria-label',`Событие ${i+1}, ${time(event.timecode_sec)}`);marker.title=`Событие ${i+1} · ${time(event.timecode_sec)}`;marker.addEventListener('click',()=>selectEvent(i));$('timeline').append(marker);});
 }
 function selectEvent(index){
+  const keyboardSelection=document.activeElement?.matches('.event-item');
+  if(state.selected!==null){state.drafts[state.selected]={start:$('annotation-start').value,end:$('annotation-end').value,reviewer:$('annotation-reviewer').value,type:$('annotation-type').value,fact:$('annotation-fact').value,rule:$('annotation-rule').value,confirm:$('annotation-confirm').checked};}
   state.selected=index;const event=state.result.violations[index],meta=reviewEvent(index),duration=state.review.review.duration_sec;
   $('player').currentTime=event.timecode_sec;$('event-detail').hidden=false;$('detail-title').textContent=event.type;
   $('detail-time').textContent=`${time(event.timecode_sec)} · фрагмент ${time(meta.start_sec??event.timecode_sec)}–${time(meta.end_sec??event.timecode_sec)}`;
@@ -93,8 +98,10 @@ function selectEvent(index){
     const position=frame.timestamp_sec<event.timecode_sec-.05?0:frame.timestamp_sec>event.timecode_sec+.05?2:1;
     figure.append(button,element('figcaption','',`${ru.frames[position]} · ${preciseTime(frame.timestamp_sec)}`));$('evidence').append(figure);
   });
-  $('annotation-start').value=(meta.start_sec??event.timecode_sec).toFixed(2);$('annotation-end').value=(meta.end_sec??event.timecode_sec).toFixed(2);
-  $('annotation-start').max=duration;$('annotation-end').max=duration;$('annotation-type').value='';$('annotation-fact').value='';$('annotation-confirm').checked=false;$('annotation-feedback').textContent='';renderEvents();
+  const draft=state.drafts[index];
+  $('annotation-start').value=draft?.start??(meta.start_sec??event.timecode_sec).toFixed(2);$('annotation-end').value=draft?.end??(meta.end_sec??event.timecode_sec).toFixed(2);
+  $('annotation-start').max=duration;$('annotation-end').max=duration;$('annotation-type').value=draft?.type??'';$('annotation-fact').value=draft?.fact??'';$('annotation-reviewer').value=draft?.reviewer??'';$('annotation-rule').value=draft?.rule??'';$('annotation-confirm').checked=draft?.confirm??false;$('annotation-feedback').textContent='';renderEvents();
+  if(keyboardSelection)$('event-list').querySelector(`[data-event-index="${index}"]`)?.focus({preventScroll:true});
 }
 $('event-sort').addEventListener('change',renderEvents);
 $('seek').addEventListener('input',()=>{$('player').currentTime=Number($('seek').value);});
