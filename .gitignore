@@ -29,5 +29,6 @@ dist/
 coverage/
 .superpowers/
 .impeccable/review/
+.playwright-cli/
 
 .env

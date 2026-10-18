@@ -45,7 +45,7 @@ def validate_rows(rows, manifest, split):
             raise ValueError(f'Row {index}: scalar cells required')
         row = {key: str(original[key]).strip() if original[key] is not None else '' for key in COLUMNS}
         # CSV must remain inert when opened by a spreadsheet application.
-        if any(row[key].startswith(('=', '+', '@')) for key in COLUMNS):
+        if any(row[key].startswith(('=', '+', '-', '@')) for key in COLUMNS):
             raise ValueError(f'Row {index}: formula-like cells are not permitted')
         source = trusted.get(row['source_sha256'])
         if source is None:
@@ -188,7 +188,7 @@ Multiple globally unique event_id rows may refer to one video/source.
 No confirmed action taxonomy exists in the original labels. Exporting this table
 does not train a classifier. At least two visual types, each with three independent
 train and two validation source groups, are required by the existing trainer.
-CSV is UTF-8 BOM. Formula-like cells starting =, + or @ are rejected. Import as
+CSV is UTF-8 BOM. Formula-like cells starting =, +, - or @ are rejected. Import as
 text; do not execute formulas from annotation cells. Use a separate .csv file.
 '''
 

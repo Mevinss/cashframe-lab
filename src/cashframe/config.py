@@ -18,6 +18,7 @@ class Settings:
     min_free_disk_mb: int = 512
     max_stored_jobs: int = 100
     model_directory: Path | None = None
+    dataset_review_enabled: bool = False
 
     @property
     def local(self):

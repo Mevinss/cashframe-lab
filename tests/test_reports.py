@@ -122,7 +122,7 @@ class ReportTests(unittest.TestCase):
                       'reviewer': 'Тест', 'type': 'fixture', 'observed_fact': 'Видно синтетическое действие.',
                       'visibility': 'clear', 'rule_status': 'confirmed', 'rule_id': 'R1',
                       'rule_applicability_confirmed': True}
-        rule = {'id': 'R1', 'verified': True, 'document': 'Локальный тестовый документ', 'section': 'Пункт 20',
+        rule = {'id': 'R1', 'verified': True, 'title':'Тестовое правило', 'document': 'Локальный тестовый документ', 'section': 'Пункт 20',
                 'url': 'https://example.org/rule', 'applicability': 'Fixture only', 'visual_cues': ['fixture']}
         _, _, manifest, text = self.render(synthetic_job(), annotations=[annotation], rules=[rule])
         self.assertIn('Локальный тестовый документ', text)
@@ -134,6 +134,12 @@ class ReportTests(unittest.TestCase):
             _, _, _, text = self.render(synthetic_job(), annotations=[annotation | mutation], rules=[rule])
             self.assertNotIn('Локальный тестовый документ', text)
             self.assertIn('Нормативное основание не установлено', text)
+
+        for mutation in [{'title':''},{'document':''},{'url':'http://example.org/rule'},{'verified':'true'}]:
+            _,_,manifest,_=self.render(synthetic_job(),annotations=[annotation],rules=[rule|mutation])
+            self.assertIsNone(manifest['human_annotations'][0]['rule'])
+        _,_,manifest,_=self.render(synthetic_job(),annotations=[annotation],rules=[rule|{'section':''}])
+        self.assertEqual(manifest['human_annotations'][0]['rule']['id'],'R1')
 
     def test_incomplete_job_and_corrupt_evidence_are_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

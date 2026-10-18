@@ -86,6 +86,15 @@ def describe_video(windows,descriptor):
     if descriptor=='dynamics':
         difference=np.abs(np.diff(x,axis=0)) if len(x)>1 else np.zeros_like(x)
         return np.r_[x.mean(0),difference.mean(0),np.quantile(difference,.9,axis=0)]
+    if descriptor=='activity_only':
+        if not x.shape[1] or x.shape[1]%3:
+            raise ValueError('Activity descriptor requires mean/std/motion blocks of equal width')
+        width=x.shape[1]//3
+        # Drop the absolute per-video embedding mean. Constant scene offsets
+        # in the first block cancel; activity may still contain scene effects.
+        difference=np.abs(np.diff(x[:,:width],axis=0)) if len(x)>1 else np.zeros((1,width))
+        return finite_array(np.r_[x[:,width:2*width].mean(0),x[:,2*width:].mean(0),difference.mean(0)],
+                            'activity descriptor',1)
     raise ValueError('Unknown descriptor')
 
 

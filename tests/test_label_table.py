@@ -87,9 +87,13 @@ class LabelTableTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 write_csv(workbook, self.rows, self.manifest, self.split)
             self.assertEqual(workbook.read_bytes(), b'original-workbook')
-        for formula in ('=WEBSERVICE("secret")', '+SUM(1,2)', '@SUM(1,2)'):
+        for formula in ('=WEBSERVICE("secret")', '+SUM(1,2)', '@SUM(1,2)', '-SUM(1,2)'):
             with self.assertRaises(ValueError):
                 self.validate([confirmed(self.rows[0]) | {'observed_action': formula}])
+        accepted = self.validate([confirmed(self.rows[0]) | {
+            'reviewer': 'Анна-Мария', 'observed_action': 'Кассир передаёт документ — продолжение не видно'}])
+        self.assertEqual(accepted[0]['reviewer'], 'Анна-Мария')
+        self.assertEqual(accepted[0]['observed_action'], 'Кассир передаёт документ — продолжение не видно')
 
     def test_confirmation_requires_provenance_clear_type_and_observed_fact(self):
         base = confirmed(self.rows[0])

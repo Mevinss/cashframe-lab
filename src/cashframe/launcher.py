@@ -56,6 +56,7 @@ def main():
     parser.add_argument('--host', help='Override CASHFRAME_HOST')
     parser.add_argument('--port', type=int, help='Override CASHFRAME_PORT')
     parser.add_argument('--model-dir',type=Path,help='Optional local model directory, relative to project root')
+    parser.add_argument('--dataset-review',action='store_true',help='Enable private training-data review on this installation')
     args = parser.parse_args()
     try:
         values = load_environment(ROOT)
@@ -63,7 +64,8 @@ def main():
         port = args.port if args.port is not None else int(values['CASHFRAME_PORT'])
         if not host or not 1 <= port <= 65535:
             raise ValueError('Set a nonempty CASHFRAME_HOST and CASHFRAME_PORT between 1 and 65535.')
-        settings = Settings(api_key=resolve_api_key(ROOT, values['CASHFRAME_API_KEY']),model_directory=args.model_dir)
+        settings = Settings(api_key=resolve_api_key(ROOT, values['CASHFRAME_API_KEY']),model_directory=args.model_dir,
+                            dataset_review_enabled=args.dataset_review)
     except ValueError as error:
         parser.error(str(error))
     from .api import create_app

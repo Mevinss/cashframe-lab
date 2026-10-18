@@ -1,0 +1,159 @@
+{
+  "version": "rk231-proposed-violations-v1",
+  "status": "proposed_violation_categories",
+  "source_url": "https://adilet.zan.kz/rus/docs/V1900019680",
+  "human_confirmation_required": true,
+  "trained_classifier": false,
+  "official_violation_list": false,
+  "notice": "Предлагаемые инженерные категории признаков возможного нарушения для ручной разметки. Это не официальный перечень нарушений и не готовый классификатор. Категория не подтверждает нарушение сама по себе: человек должен проверить все условия, видимость и применимость нормы. Бинарные метки и обычные действия не превращаются в эти типы автоматически. При неизвестных условиях тип и основание остаются неподтверждёнными.",
+  "classes": [
+    {
+      "id": "leave_before_service_end",
+      "labels": {
+        "ru": "Уход до окончания обслуживания",
+        "kk": "Қызмет көрсету аяқталғанға дейін жұмыс орнынан кету",
+        "en": "Leaving before service completion"
+      },
+      "candidate_rule_ids": [
+        "RK231-22"
+      ],
+      "requirements": {
+        "ru": [
+          "Подтверждено обслуживание клиента при приёме наличных.",
+          "На момент ухода обслуживание ещё не завершено.",
+          "Видны границы рабочего места и фактический уход кассового работника за них.",
+          "Проверяющий указал интервал в исходном видео и записал видимые факты."
+        ],
+        "kk": [
+          "Қолма-қол ақшаны қабылдау кезінде клиентке қызмет көрсетіліп жатқаны расталған.",
+          "Қызметкер кеткен сәтте клиентке қызмет көрсету әлі аяқталмаған.",
+          "Жұмыс орнының шекарасы және касса қызметкерінің сол шекарадан шыққаны көрінеді.",
+          "Тексеруші бастапқы бейнедегі уақыт аралығын көрсетіп, көрінетін фактілерді жазған."
+        ],
+        "en": [
+          "Customer service during a cash receipt operation is confirmed.",
+          "Service was still in progress when the cashier left.",
+          "The workstation boundaries and the cashier actually crossing them are visible.",
+          "A reviewer recorded the original video interval and visible facts."
+        ]
+      },
+      "limits": {
+        "ru": "Встать, переместиться внутри рабочей зоны или выйти из кадра недостаточно. После завершения обслуживания категория неприменима. Если границы места или стадия обслуживания неизвестны, подтверждать её нельзя.",
+        "kk": "Орнынан тұру, жұмыс аймағы ішінде қозғалу немесе кадрдан шығу жеткіліксіз. Қызмет көрсету аяқталғаннан кейін бұл санат қолданылмайды. Жұмыс орнының шекарасы не қызмет көрсету кезеңі белгісіз болса, санатты растауға болмайды.",
+        "en": "Standing up, moving within the workstation, or leaving the camera view is insufficient. This category does not apply after service ends. Unknown workstation boundaries or service stage prevent confirmation."
+      },
+      "automatic_violation": false
+    },
+    {
+      "id": "cash_receipt_count_without_client_presence",
+      "labels": {
+        "ru": "Приём или пересчёт без присутствия клиента",
+        "kk": "Клиент болмаған кезде қолма-қол ақшаны қабылдау немесе санау",
+        "en": "Receiving or counting cash without the client present"
+      },
+      "candidate_rule_ids": [
+        "RK231-20"
+      ],
+      "requirements": {
+        "ru": [
+          "Подтверждено, что показана клиентская операция приёма наличных, а не внутренний пересчёт.",
+          "Различимы наличные и этап их приёма или пересчёта в этой операции.",
+          "Полностью видна зона, необходимая для установления присутствия клиента.",
+          "Проверяющий подтвердил фактическое отсутствие клиента, указал интервал и основания наблюдения."
+        ],
+        "kk": [
+          "Көрсетілген әрекет ішкі қайта санау емес, клиенттен қолма-қол ақшаны қабылдау операциясы екені расталған.",
+          "Қолма-қол ақша және осы операциядағы қабылдау не санау кезеңі ажыратылады.",
+          "Клиенттің бар-жоғын анықтауға қажетті аймақ толық көрінеді.",
+          "Тексеруші клиенттің іс жүзінде болмағанын растап, уақыт аралығы мен бақылау негіздерін көрсеткен."
+        ],
+        "en": [
+          "The scene is confirmed as a customer cash receipt operation rather than internal cash counting.",
+          "Cash and the receipt or counting stage of this operation can be distinguished.",
+          "The entire area needed to establish the client's presence is visible.",
+          "A reviewer confirmed the client's actual absence and recorded the interval and observation basis."
+        ]
+      },
+      "limits": {
+        "ru": "Пересчёт наличных — нейтральное действие. Отсутствие клиента в обрезанном кадре не доказывает его отсутствия при операции. Внутренний пересчёт не получает эту категорию автоматически. Распознавание и идентификация лиц не используются. Для приёма инкассаторских сумок предусмотрена отдельная процедура (пункты 24–25); отсутствие немедленного вскрытия само по себе не устанавливает нарушение.",
+        "kk": "Қолма-қол ақшаны санау — бейтарап әрекет. Клиенттің шектеулі кадрда көрінбеуі оның операция кезінде болмағанын дәлелдемейді. Ішкі қайта санауға бұл санат автоматты түрде берілмейді. Беттерді тану және жеке басты сәйкестендіру қолданылмайды. Инкассаторлық сөмкелерді қабылдау үшін бөлек рәсім көзделген (24–25-тармақтар); сөмкені бірден ашпау өздігінен бұзушылықты білдірмейді.",
+        "en": "Counting cash is a neutral action. A client missing from a cropped view does not establish absence from the operation. Internal cash counting does not automatically receive this category. Face recognition and person identification are not used. Collection bags follow a separate receipt procedure (paragraphs 24–25); not opening a bag immediately is not by itself evidence of a violation."
+      },
+      "automatic_violation": false
+    },
+    {
+      "id": "prior_cash_outside_designated_storage",
+      "labels": {
+        "ru": "Ранее принятые деньги вне предназначенного хранения",
+        "kk": "Бұрын қабылданған ақшаны арнайы сақтау құрылғысынан тыс қалдыру",
+        "en": "Leaving prior receipts outside designated storage"
+      },
+      "candidate_rule_ids": [
+        "RK231-20"
+      ],
+      "requirements": {
+        "ru": [
+          "Различима последовательность операций и подтверждено, что деньги приняты ранее.",
+          "Эти деньги можно отличить от денег текущей операции.",
+          "Видно место оставления ранее принятых денег вне предназначенного устройства хранения.",
+          "Проверяющий подтвердил назначение устройства хранения, интервал и факты наблюдения."
+        ],
+        "kk": [
+          "Операциялардың реті ажыратылады және ақшаның бұрын қабылданғаны расталған.",
+          "Бұл ақшаны ағымдағы операцияның ақшасынан ажыратуға болады.",
+          "Бұрын қабылданған ақшаның арнайы сақтау құрылғысынан тыс қалдырылған орны көрінеді.",
+          "Тексеруші сақтау құрылғысының мақсатын, уақыт аралығын және байқалған фактілерді растаған."
+        ],
+        "en": [
+          "The sequence of operations is distinguishable and the cash is confirmed as previously received.",
+          "This cash can be distinguished from cash belonging to the current operation.",
+          "The location where previously received cash was left outside designated storage is visible.",
+          "A reviewer confirmed the storage device's purpose, the interval, and observed facts."
+        ]
+      },
+      "limits": {
+        "ru": "Деньги текущей операции на столе и открытие ящика не подтверждают эту категорию. Назначение ящика, наличие денег, их принадлежность к операции и состояние запирания нельзя домысливать по общему кадру. Сумма и личность владельца не устанавливаются.",
+        "kk": "Ағымдағы операцияның ақшасының үстелде болуы және жәшікті ашу бұл санатты растамайды. Жалпы кадрдан жәшіктің мақсатын, ақшаның бар-жоғын, оның қай операцияға жататынын және құлып күйін жорамалдауға болмайды. Ақша сомасы мен иесінің жеке басы анықталмайды.",
+        "en": "Cash from the current operation on the desk and opening a drawer do not confirm this category. A general view cannot establish the drawer's purpose, cash contents, operation association, or locking state by inference. Amounts and owner identity are not determined."
+      },
+      "automatic_violation": false
+    },
+    {
+      "id": "receipt_confirmation_not_provided",
+      "labels": {
+        "ru": "Не предоставлено подтверждение приёма наличных",
+        "kk": "Қолма-қол ақшаны қабылдауды растайтын құжатты бермеу",
+        "en": "Receipt confirmation not provided"
+      },
+      "candidate_rule_ids": [
+        "RK231-19-6"
+      ],
+      "requirements": {
+        "ru": [
+          "Подтверждены приём наличных от клиента и завершение этой операции.",
+          "Проверяющий установил назначение подтверждающего документа и доступные способы его предоставления.",
+          "Проверяющий подтвердил невыдачу документа, исключив ненаблюдаемое предоставление; отсутствие бумаги в кадре недостаточно.",
+          "Вручную записаны интервал, видимые факты и основания вывода о невыдаче."
+        ],
+        "kk": [
+          "Клиенттен қолма-қол ақшаны қабылдау және осы операцияның аяқталғаны расталған.",
+          "Тексеруші растайтын құжаттың мақсатын және оны ұсынудың қолжетімді тәсілдерін анықтаған.",
+          "Тексеруші құжаттың көрінбейтін жолмен берілуін жоққа шығарып, оның берілмегенін растаған; кадрда қағаздың болмауы жеткіліксіз.",
+          "Уақыт аралығы, көрінетін фактілер және құжаттың берілмегені туралы тұжырымның негіздері қолмен жазылған."
+        ],
+        "en": [
+          "Receipt of cash from the client and completion of that operation are confirmed.",
+          "A reviewer established the confirmation document's purpose and available delivery methods.",
+          "A reviewer confirmed non-delivery after excluding unseen delivery; absence of paper in the camera view is insufficient.",
+          "The interval, visible facts, and basis for concluding non-delivery were manually recorded."
+        ]
+      },
+      "limits": {
+        "ru": "Ограниченный кандидат: одно видео обычно не исключает предоставления документа вне наблюдаемой зоны или другим ненаблюдаемым способом. Допустимость конкретного способа здесь не устанавливается. Отсутствие видимой передачи бумаги не является положительной меткой; при неизвестном способе предоставления тип и основание не подтверждаются.",
+        "kk": "Қолданылуы шектеулі кандидат: бір бейне құжаттың көрінбейтін аймақта не басқа байқалмайтын тәсілмен берілуін әдетте жоққа шығармайды. Нақты тәсілдің заңға сәйкестігі мұнда анықталмайды. Қағаздың берілгені көрінбеуі оң белгі болып саналмайды; ұсыну тәсілі белгісіз болса, түрі мен нормативтік негізі расталмайды.",
+        "en": "A limited candidate: one video usually cannot exclude delivery outside the observed area or through another unseen method. The legal acceptability of a specific method is not established here. No visible paper handover is not a positive label; unknown delivery methods prevent confirmation of the type and legal basis."
+      },
+      "automatic_violation": false
+    }
+  ]
+}

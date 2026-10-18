@@ -59,7 +59,8 @@ class SequenceCandidateTest(unittest.TestCase):
 
     def test_rule_not_claimed_without_enabled_verified_mapping(self):
         rule = {'id': 'r1', 'title': 'Review', 'verified': True, 'automatic_matching_enabled': False,
-                'applicability': 'a', 'visual_cues': ['b']}
+                'applicability': 'a', 'visual_cues': ['b'],
+                'document': 'NB RK cash rules', 'url': 'https://adilet.zan.kz/rus/docs/test'}
         explanation = explain_event({'type': 'Human category'}, [rule], {'Human category': 'r1'})
         self.assertIsNone(explanation['rule_id'])
 

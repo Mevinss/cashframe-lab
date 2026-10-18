@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Разметка видео — Видеоаудит</title>
+  <link rel="stylesheet" href="/static/styles.css"><link rel="stylesheet" href="/static/dataset-review.css">
+</head>
+<body class="dataset-page">
+  <header class="dataset-header">
+    <a href="/" data-copy="back">К видеоаудиту</a>
+    <div class="preferences"><label class="visually-hidden" for="review-language" data-copy="language">Язык</label><select id="review-language"><option value="ru">Русский</option><option value="kk">Қазақша</option><option value="en">English</option></select><button type="button" id="review-theme" data-copy="theme">Сменить тему</button></div>
+  </header>
+  <main class="dataset-main">
+    <div class="dataset-heading"><h1 data-copy="heading">Разметка исходных видео</h1><p data-copy="intro">Подтвердите видимое действие и его интервал. Исходные точки помогают найти эпизод; тип модель из них не получает.</p></div>
+    <form id="review-access" class="review-access"><label for="review-key" data-copy="key">Ключ доступа</label><input type="password" id="review-key" required autocomplete="off" spellcheck="false"><button type="submit" data-copy="connect">Подключить</button><span id="review-count"></span></form>
+    <p id="review-notice" role="status" aria-live="polite"></p>
+    <section id="review-workspace" class="dataset-workspace" hidden>
+      <nav class="dataset-sources" aria-label="Видео"><label for="review-filter" data-copy="filter">Показать</label><select id="review-filter"><option value="all" data-copy="all">Все</option><option value="positive" data-copy="positive">События</option><option value="negative" data-copy="negative">Нормальные</option><option value="pending" data-copy="pending">Без полного просмотра</option></select><div id="source-list"></div></nav>
+      <div class="dataset-detail">
+        <div class="source-heading"><h2 id="source-title"></h2><span id="source-meta"></span></div>
+        <video id="review-video" controls playsinline preload="metadata" aria-label="Исходное видео"></video>
+        <div class="video-tools"><span id="review-time">0:00.00</span><div id="review-points"></div><button type="button" id="review-slow" data-copy="speed">Скорость 0,5× / 1×</button></div>
+        <form id="source-review">
+          <div class="reviewer-row"><label for="reviewer-name" data-copy="reviewer">Проверяющий (имя или обозначение)</label><input id="reviewer-name" maxlength="100" autocomplete="name" placeholder="Например, Проверяющий 1" data-placeholder="reviewerPlaceholder" required></div>
+          <div class="event-heading"><h3 data-copy="events">Наблюдаемые события</h3><button type="button" id="add-review-event" data-copy="add">Добавить событие</button></div>
+          <p class="review-help" data-copy="eventHelp">Записывайте конкретное действие. Обычная операция сама по себе не нарушение. Если тип не установлен, оставьте его пустым.</p>
+          <div id="review-events"></div>
+          <label class="review-check"><input type="checkbox" id="review-full"><span data-copy="full">Видео просмотрено полностью, все видимые события внесены</span></label>
+          <label class="review-check"><input type="checkbox" id="review-confirm" required><span data-copy="confirm">Подтверждаю внесённые наблюдения по исходному видео</span></label>
+          <div class="review-save"><button type="submit" id="save-review" data-copy="save">Сохранить разметку</button><span data-copy="privacy">Сохраняется локально. Тестовые видео исключены.</span></div>
+        </form>
+      </div>
+    </section>
+  </main>
+  <datalist id="review-type-list"></datalist>
+  <template id="review-event-template">
+    <fieldset class="review-event">
+      <legend></legend>
+      <div class="event-times">
+        <label><span data-copy="start">Начало, с</span><input type="number" min="0" step="0.01" data-field="start_sec" required></label><button type="button" data-mark="start_sec" data-copy="fromVideo">Из видео</button>
+        <label><span data-copy="end">Конец, с</span><input type="number" min="0" step="0.01" data-field="end_sec" required></label><button type="button" data-mark="end_sec" data-copy="fromVideo">Из видео</button>
+      </div>
+      <label class="annotation-template"><span data-copy="template">Шаблон — проверьте по видео</span><select data-template><option value="" data-copy="noTemplate">Без шаблона — заполнить вручную</option></select></label>
+      <p class="template-help" data-copy="templateHelp">Заготовка текста для проверки по видео. Ваши правки сохраняются.</p>
+      <label><span data-copy="type">Тип события — одинаковое название для одного класса</span><input data-field="type_id" list="review-type-list" maxlength="160" placeholder=""></label>
+      <div class="review-rule-hint" data-rule-hint hidden></div>
+      <label><span data-copy="fact">Что видно и почему это может быть нарушением</span><textarea data-field="observed_action" rows="3" maxlength="3000" required></textarea></label>
+      <div class="template-description-actions"><button type="button" data-replace-template data-copy="replaceTemplate" disabled>Заменить описание шаблоном</button></div>
+      <div class="event-footer"><label><span data-copy="visibility">Видимость действия</span><select data-field="visibility"><option value="clear" data-copy="clear">Достаточная</option><option value="partial" data-copy="partial">Частичная — тип не подтверждаю</option><option value="insufficient" data-copy="insufficient">Недостаточная — тип не подтверждаю</option></select></label><button type="button" data-remove data-copy="remove">Удалить событие</button></div>
+      <label class="review-check"><input type="checkbox" data-target><span data-copy="target">Это событие возможного нарушения, а не только обычное действие</span></label>
+      <p class="review-help" data-copy="targetHelp">Без этой отметки сохранится наблюдение, которое не попадёт в обучение детектора нарушений.</p>
+    </fieldset>
+  </template>
+  <script type="module" src="/static/dataset-review.js"></script>
+</body>
+</html>

@@ -38,7 +38,8 @@ class LimitBody:
             nonlocal count
             message=await receive()
             count+=len(message.get('body',b''))
-            limit = 16384 if scope.get('path', '').endswith('/annotations') else self.limit
+            route=scope.get('path','')
+            limit = 16384 if route.endswith('/annotations') else 512*1024 if route.startswith('/api/v1/dataset-review') else self.limit
             if count>limit:raise UploadTooLarge()
             return message
         try:await self.app(scope,bounded_receive,send)
@@ -230,6 +231,44 @@ def create_app(settings=None,analyzer=None):
 
     @app.get('/api/v1/action-types',dependencies=[Depends(authorize)])
     def action_types():return read_json(ROOT/'config/action-types.json')
+
+    @app.get('/api/v1/violation-types',dependencies=[Depends(authorize)])
+    def violation_types():return read_json(ROOT/'config/violation-types.json')
+
+    from .dataset_review import DatasetReviewStore, ReviewConflict, ReviewInputError
+    dataset_review=DatasetReviewStore(settings.root)
+
+    def review_dataset_enabled():
+        if not settings.dataset_review_enabled:
+            raise HTTPException(404,'Разметка обучающего набора выключена.')
+
+    @app.get('/api/v1/dataset-review',dependencies=[Depends(authorize)])
+    def dataset_sources():
+        review_dataset_enabled()
+        try:return dataset_review.snapshot()
+        except (OSError,ValueError,KeyError):raise HTTPException(409,'Обучающий набор не подготовлен или его разметка повреждена.')
+
+    @app.get('/api/v1/dataset-review/{source_sha256}/video',dependencies=[Depends(authorize)])
+    def dataset_video(source_sha256:str):
+        review_dataset_enabled()
+        try:path=dataset_review.video(source_sha256)
+        except (OSError,ValueError,KeyError):raise HTTPException(404,'Видео отсутствует в доступной части обучающего набора.')
+        return FileResponse(path,media_type='video/mp4',headers={'Cache-Control':'no-store'})
+
+    @app.put('/api/v1/dataset-review/{source_sha256}',dependencies=[Depends(authorize)])
+    async def dataset_save(source_sha256:str,request:Request):
+        review_dataset_enabled()
+        try:return dataset_review.save(source_sha256,await request.json())
+        except ReviewConflict:raise HTTPException(409,'Разметка изменилась. Обновите страницу перед сохранением.')
+        except ReviewInputError as exc:raise HTTPException(422,{'field':exc.field,'message':str(exc)})
+        except KeyError:raise HTTPException(404,'Видео недоступно для обучающей разметки.')
+        except (ValueError,TypeError):raise HTTPException(422,'Проверьте автора, тип, наблюдаемое действие и границы интервала. Полный просмотр подтверждается отдельно.')
+        except OSError:raise HTTPException(409,'Не удалось сохранить разметку. Предыдущая версия сохранена локально.')
+
+    @app.get('/dataset-review')
+    def dataset_review_page():
+        review_dataset_enabled()
+        return FileResponse(ROOT/'web/dataset-review.html')
 
     def download_report(job_id,kind,language='ru'):
         with report_lock:

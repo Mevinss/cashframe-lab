@@ -129,7 +129,9 @@ class ComplianceTests(unittest.TestCase):
         a={'source_sha256':'a'*64,'start_sec':47,'end_sec':48,'origin':'human','confirmed':True,
            'type':'Передача документа','reviewer':'QA','observed_fact':'Synthetic observation','visibility':'clear',
            'rule_status':'confirmed','rule_id':'r','rule_applicability_confirmed':True}
-        rule={'id':'r','verified':True,'url':'https://adilet.zan.kz/rus/docs/test'}
+        rule={'id':'r','verified':True,'url':'https://adilet.zan.kz/rus/docs/test',
+              'title':'Receipt','document':'NB RK cash rules','applicability':'Confirmed cash receipt',
+              'visual_cues':['Client presence is visible']}
         result=event_compliance(job,[rule],[a])
         self.assertFalse(any(e['status']=='confirmed' for e in result))
         self.assertTrue(all(e['association_status']=='ambiguous' for e in result))
@@ -139,7 +141,8 @@ class ComplianceTests(unittest.TestCase):
         source='a'*64
         job={'source_sha256':source,'duration_sec':60,'result':{'violations':[{'type':'unknown','timecode_sec':47}]},
              'review':{'events':[{'id':'event-1','start_sec':46,'end_sec':49,'type':'unknown'}]}}
-        rule={'id':'rule-1','verified':True,'url':'https://adilet.zan.kz/rus/docs/test','title':'Rule','section':'20'}
+        rule={'id':'rule-1','verified':True,'url':'https://adilet.zan.kz/rus/docs/test','title':'Rule','section':'20',
+              'document':'NB RK cash rules','applicability':'Confirmed cash receipt','visual_cues':['Client presence is visible']}
         annotation={'source_sha256':source,'start_sec':46,'end_sec':48,'origin':'human','confirmed':True,
                     'type':'Передача документа','reviewer':'Tester','observed_fact':'Synthetic observation',
                     'visibility':'clear','rule_id':'rule-1','rule_status':'confirmed','rule_applicability_confirmed':True}
@@ -156,11 +159,32 @@ class ComplianceTests(unittest.TestCase):
             {'id':'e1','start_sec':1,'end_sec':2},{'id':'e2','start_sec':47,'end_sec':48}]}}
         a={'source_sha256':'a'*64,'start_sec':47,'end_sec':48,'origin':'human','confirmed':True,'type':'Передача документа',
            'observed_fact':'Test','reviewer':'Reviewer','visibility':'clear','rule_id':'r','rule_status':'confirmed','rule_applicability_confirmed':True}
-        rule={'id':'r','verified':True,'url':'javascript:alert(1)'}
+        rule={'id':'r','verified':True,'url':'javascript:alert(1)',
+              'title':'Receipt','document':'NB RK cash rules','applicability':'Confirmed cash receipt',
+              'visual_cues':['Client presence is visible']}
         self.assertTrue(all(e['rule'] is None for e in event_compliance(job,[rule],[a])))
         rule['url']='https://adilet.zan.kz/rus/docs/test'
         result=event_compliance(job,[rule],[a])
         self.assertEqual(result[0]['status'],'unresolved');self.assertEqual(result[1]['status'],'confirmed')
+
+    def test_incomplete_registry_cannot_confirm_law_but_keeps_observed_fact(self):
+        from cashframe.compliance import event_compliance
+        job={'source_sha256':'a'*64,'duration_sec':60,'review':{'events':[{'id':'one','start_sec':45,'end_sec':49}]}}
+        a={'source_sha256':'a'*64,'start_sec':47,'end_sec':48,'origin':'human','confirmed':True,
+           'type':'Пересчёт наличных','reviewer':'QA','observed_fact':'Synthetic visible cash count',
+           'visibility':'clear','rule_status':'confirmed','rule_id':'r','rule_applicability_confirmed':True}
+        rule={'id':'r','verified':True,'url':'https://adilet.zan.kz/rus/docs/test',
+              'title':'Receipt','document':'NB RK cash rules','applicability':'Confirmed cash receipt',
+              'visual_cues':['Client presence is visible']}
+        # A precise paragraph is optional; source name and applicability are required.
+        self.assertEqual(event_compliance(job,[rule],[a])[0]['status'],'confirmed')
+        for field in ('title','document','url','applicability','visual_cues'):
+            incomplete=dict(rule);incomplete.pop(field)
+            with self.subTest(field=field):
+                result=event_compliance(job,[incomplete],[a])[0]
+                self.assertEqual(result['status'],'unresolved')
+                self.assertIsNone(result['rule'])
+                self.assertEqual(result['observed_fact'],'Synthetic visible cash count')
 
 
 if __name__=='__main__':unittest.main()

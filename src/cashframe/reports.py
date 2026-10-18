@@ -17,6 +17,7 @@ import re
 from types import MappingProxyType
 from urllib.parse import urlsplit, urlunsplit
 from .event_labels import is_specific_type
+from .rules import is_verified_rule
 from xml.sax.saxutils import escape
 
 from PIL import Image as PILImage
@@ -243,8 +244,7 @@ def _rule(annotation, rules):
     if not valid:
         return None
     for rule in rules:
-        if (rule.get('id') == annotation.get('rule_id') and rule.get('verified') is True
-                and rule.get('applicability') and rule.get('visual_cues')):
+        if rule.get('id') == annotation.get('rule_id') and is_verified_rule(rule):
             url = urlsplit(str(rule.get('url', '')))
             safe_url = urlunsplit((url.scheme, url.hostname or '', url.path, '', '')) if url.scheme in ('https', 'http') else None
             return {key: _text(rule.get(key)) for key in ('id', 'document', 'title', 'section', 'verified_on', 'applicability', 'limits')} | {'url': safe_url}

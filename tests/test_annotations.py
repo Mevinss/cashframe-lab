@@ -28,8 +28,24 @@ class AnnotationTests(unittest.TestCase):
             self.assertTrue(reason)
 
     def test_verified_rule_without_automatic_match_is_not_auto_selected(self):
-        rule={'id':'r','verified':True,'applicability':'cash receipt','visual_cues':['test'], 'automatic_matching_enabled':False}
+        rule={'id':'r','verified':True,'applicability':'cash receipt','visual_cues':['test'],
+              'title':'Receipt','document':'NB RK cash rules','url':'https://adilet.zan.kz/rus/docs/test',
+              'automatic_matching_enabled':False}
         self.assertIsNone(resolve_rule('r',[rule]))
+
+    def test_automatic_rule_requires_source_name_and_applicability(self):
+        rule={'id':'r','verified':True,'automatic_matching_enabled':True,
+              'title':'Receipt in client presence','document':'NB RK cash rules',
+              'url':'https://adilet.zan.kz/rus/docs/test',
+              'applicability':'Confirmed cash receipt','visual_cues':['Client presence is visible']}
+        self.assertEqual(resolve_rule('r',[rule]),rule)
+        for field in ('title','document','url','applicability','visual_cues'):
+            incomplete=dict(rule);incomplete.pop(field)
+            with self.subTest(field=field):self.assertIsNone(resolve_rule('r',[incomplete]))
+        for override in ({'verified':'false'},{'automatic_matching_enabled':'false'},
+                         {'title':'  '},{'url':'javascript:alert(1)'},{'url':'https://'},
+                         {'visual_cues':['  ']},{'visual_cues':'Client absent'}):
+            with self.subTest(override=override):self.assertIsNone(resolve_rule('r',[dict(rule,**override)]))
 
     def test_null_fields_cannot_confirm_an_annotation(self):
         item={'start_sec':0,'end_sec':1,'confirmed':True,'origin':'human','reviewer':None,'observed_fact':None,'type':None,'rule_status':'unresolved'}

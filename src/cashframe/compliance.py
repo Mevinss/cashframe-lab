@@ -1,12 +1,10 @@
 """Attach explicit human observations to events, never infer law from a model score."""
-from urllib.parse import urlsplit
-
 from .annotations import validate_annotation
+from .rules import is_verified_rule
 
 
 def event_compliance(job,rules,annotations):
-    registry={r['id']:r for r in rules if r.get('id') and r.get('verified') is True
-              and urlsplit(r.get('url','')).scheme=='https' and urlsplit(r.get('url','')).hostname}
+    registry={r['id']:r for r in rules if is_verified_rule(r)}
     duration=job.get('duration_sec') or (job.get('review') or {}).get('duration_sec',0)
     events=(job.get('review') or {}).get('events') or [
         dict(e,id=f'event-{i+1}') for i,e in enumerate((job.get('result') or {}).get('violations',[]))]
