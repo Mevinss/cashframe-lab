@@ -17,12 +17,17 @@ def main():
     parser.add_argument('--baseline', default='local/baselines/v1-original')
     parser.add_argument('--report', default='local/experiments/sequence-tcn/test-comparison.json')
     parser.add_argument('--encoder', default='local/encoder')
+    parser.add_argument('--supervision', choices=('human_confirmed', 'weak_reviewed_boundaries'),
+                        default='human_confirmed', help='Weak mode uses a separately frozen weak-review directory')
     args = parser.parse_args()
+    if args.supervision == 'weak_reviewed_boundaries' and args.phase != 'train':
+        parser.error('Weak supervision is supported only for train; use reviewed_tcn_evaluate.py for validation')
     try:
         if args.phase == 'review-table':
             result = {'status': 'review_table_ready', 'source_groups': write_review_table(args.manifest, args.review)}
         elif args.phase == 'train':
-            result = train(args.manifest, args.split, args.features, args.review, args.candidate, args.baseline)
+            result = train(args.manifest, args.split, args.features, args.review, args.candidate, args.baseline,
+                           supervision=args.supervision)
         elif args.phase == 'evaluate':
             result = evaluate(args.manifest, args.split, args.features, args.review, args.candidate, args.baseline, args.report)
         else:

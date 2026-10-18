@@ -123,6 +123,60 @@ class DatasetReviewTests(unittest.TestCase):
         removed = store.save(self.ids[0], dict(revision=updated['revision'], reviewer='Reviewer', coverage_complete=False, events=[]))
         self.assertTrue(any(r['event_id']==reviewed['event_id'] and r['annotation_status']=='rejected' for r in removed['sources'][0]['events']))
 
+    def test_api_repeated_events_keep_both_ids_and_original_points_after_reload_and_single_edit(self):
+        from fastapi.testclient import TestClient
+        from cashframe.api import create_app
+        from cashframe.config import Settings
+        self.groups[0].update(duration_sec=80, points_sec=[57, 68])
+        (self.dataset/'manifest.json').write_text(json.dumps(self.groups))
+        settings=Settings(root=self.root,api_key='test-key',dataset_review_enabled=True)
+        headers={'X-API-Key':'test-key'}
+        endpoint='/api/v1/dataset-review/'+self.ids[0]
+        def source(snapshot):
+            return next(item for item in snapshot['sources'] if item['source_sha256']==self.ids[0])
+        def active(snapshot):
+            return sorted((row for row in source(snapshot)['events'] if row['annotation_status']=='draft'),
+                          key=lambda row:row['start_sec'])
+        with TestClient(create_app(settings,analyzer=lambda *a:None)) as client:
+            initial=client.get('/api/v1/dataset-review',headers=headers).json()
+            original_points=source(initial)['events']
+            events=[dict(start_sec=start,end_sec=end,type_id='visible_action',
+                         observed_action='Repeated synthetic action',visibility='clear',target_confirmed=False)
+                    for start,end in [(57,58),(66,67)]]
+            response=client.put(endpoint,headers=headers,json=dict(revision=initial['revision'],
+                                reviewer='Synthetic reviewer',coverage_complete=True,events=events))
+            self.assertEqual(response.status_code,200,response.text)
+            saved=active(response.json())
+            self.assertEqual([(row['start_sec'],row['end_sec']) for row in saved],[(57,58),(66,67)])
+            saved_ids=[row['event_id'] for row in saved]
+            self.assertEqual(len(set(saved_ids)),2)
+            self.assertEqual([row['point_sec'] for row in saved],[57,None])
+        # A new app/store reads the actual persisted files rather than reusing a response.
+        with TestClient(create_app(settings,analyzer=lambda *a:None)) as client:
+            reloaded=client.get('/api/v1/dataset-review',headers=headers).json()
+            self.assertEqual([row['event_id'] for row in active(reloaded)],saved_ids)
+            self.assertEqual([row for row in source(reloaded)['events'] if row['annotation_status']=='unreviewed'],
+                             original_points)
+            edited=[{field:row[field] for field in ('event_id','start_sec','end_sec','type_id',
+                                                   'observed_action','visibility')} | {'target_confirmed':False}
+                    for row in active(reloaded)]
+            edited[0].update(end_sec=58.5,observed_action='Edited repeated synthetic action')
+            response=client.put(endpoint,headers=headers,json=dict(revision=reloaded['revision'],
+                                reviewer='Synthetic reviewer',coverage_complete=True,events=edited))
+            self.assertEqual(response.status_code,200,response.text)
+            final=client.get('/api/v1/dataset-review',headers=headers).json()
+            final_events=active(final)
+            self.assertEqual([row['event_id'] for row in final_events],saved_ids)
+            self.assertEqual([(row['start_sec'],row['end_sec']) for row in final_events],[(57,58.5),(66,67)])
+            self.assertEqual(final_events[0]['observed_action'],'Edited repeated synthetic action')
+            self.assertEqual(final_events[1]['observed_action'],'Repeated synthetic action')
+            self.assertEqual([row['point_sec'] for row in final_events],[57,None])
+            self.assertEqual([row for row in source(final)['events'] if row['annotation_status']=='unreviewed'],
+                             original_points)
+            self.assertEqual(source(final)['points_sec'],[57,68])
+            self.assertEqual(final['confirmed_intervals'],0)
+            self.assertTrue(source(final)['coverage_complete'])
+
     def test_organizer_point_id_cannot_be_reused_as_a_human_event_id(self):
         store=self.store()
         snapshot=store.snapshot()
