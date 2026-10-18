@@ -11,6 +11,7 @@ import psutil
 
 from .data import read_json
 from .schemas import CompletedResult
+from .progress import validate_progress
 
 
 class Worker:
@@ -49,6 +50,7 @@ class Worker:
                     child=subprocess.Popen(command,stdout=log,stderr=log,env=environment,**options)
                     with self.process_lock:self.processes.add(child)
                     try:
+                        last_payload=None
                         while child.poll() is None:
                             if self.stopping.is_set():raise RuntimeError('service_stopping')
                             if time.monotonic()-accepted_at>self.settings.deadline_sec:
@@ -59,7 +61,15 @@ class Worker:
                                 if rss>self.settings.max_worker_rss_mb*1024*1024:raise MemoryError('worker_memory_limit')
                             except psutil.NoSuchProcess:pass
                             try:
-                                if (work/'stage.json').exists():stage(read_json(work/'stage.json')['stage'])
+                                if (work/'stage.json').exists():
+                                    payload=read_json(work/'stage.json')
+                                    if payload!=last_payload:
+                                        progress=validate_progress(payload.get('progress'))
+                                        if progress and progress['stage']==payload['stage']:
+                                            progress['updated_at']=payload['progress'].get('updated_at',progress['updated_at'])
+                                            self.store.update(jid,stage=payload['stage'],progress=progress)
+                                        else:stage(payload['stage'])
+                                        last_payload=payload
                             except (OSError,json.JSONDecodeError):pass
                             time.sleep(.2)
                         if child.returncode:raise RuntimeError('analyzer_failed')

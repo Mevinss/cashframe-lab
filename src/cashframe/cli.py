@@ -53,8 +53,8 @@ def main():
         from .pipeline import analyze_video, block_outgoing_network
         from .data import write_json
         block_outgoing_network()
-        def stage(name):
-            write_json(args.output/'stage.json',{'stage':name})
+        from .progress import StageReporter
+        stage=StageReporter(args.output/'stage.json')
         result,review=analyze_video(args.input,args.model,args.output,stage,args.encoder,budget_sec=args.budget_sec)
         write_json(args.output/'result.json',result)
         write_json(args.output/'review.json',review)

@@ -20,7 +20,7 @@ Upload a new video and inspect local-model signals with source timestamps and or
 
 ## Operating Context
 
-Three states: upload, real processing stages, results with video and timeline. Russian primary language; accessible keyboard navigation and narrow-screen panel stacking.
+Upload, measured processing stages, results with video and timeline. Russian, Kazakh and English; explicit light/dark themes, keyboard navigation and narrow-screen panel stacking.
 
 ## Capabilities and Constraints
 
@@ -28,7 +28,7 @@ Source videos remain local. No cloud video AI, facial identification or generate
 
 ## Brand Commitments
 
-User provided forte.kz reference: light working surfaces, graphite text, burgundy/raspberry primary actions, moderate corners and thin borders. Functional headings, no invented brand name, logo or slogan. No marketing hero or decorative charts.
+User-provided screenshots pin burgundy/magenta, bright cyan, white/gray surfaces and dimensional materials. Keep the large overview banner with a fixed upload action and bounded draggable video composition. The latest approved brief removes CashFrame, Datathon and the camera glyph from visible UI; the functional title is localized Video audit. Decorative geometry has no fake playback controls or analytical claims.
 
 ## Evidence on Hand
 
@@ -40,4 +40,4 @@ Lead with video and evidence. Preserve source timestamps. Explain unknowns. Sepa
 
 ## Accessibility & Inclusion
 
-Visible keyboard focus, labeled inputs, text accompanying priority colors, readable contrast, Russian strings stored separately for future Kazakh localization.
+Visible keyboard focus, labeled inputs, text accompanying status colors, readable contrast, full ru/kk/en catalogs, keyboard-controlled composition and reduced-motion support.

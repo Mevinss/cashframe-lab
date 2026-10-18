@@ -8,6 +8,19 @@ from .learning import metrics
 from .numerics import finite_array, finite_scalar
 
 
+def meets_threshold(scores,threshold):
+    """Treat FP64 reduction roundoff at an inclusive frozen boundary as a tie.
+
+    The tolerance is a fixed machine-arithmetic bound, not data calibration.
+    Different BLAS batch shapes can otherwise flip equality by a few ULPs.
+    """
+    values=finite_array(scores,'decision scores')
+    threshold=finite_scalar(threshold,'decision threshold')
+    tolerance=32*np.finfo(np.float64).eps*max(1.,abs(threshold))
+    with np.errstate(over='ignore'):
+        return (values>=threshold)|(np.abs(values-threshold)<=tolerance)
+
+
 def audit_partitions(manifest, split):
     by_id={row['group_id']:row for row in manifest}
     if len(by_id)!=len(manifest):raise ValueError('Duplicate source group IDs')
@@ -51,10 +64,12 @@ def calibrate_threshold(scores,labels,partition):
     if not len(scores) or not np.isfinite(scores).all():raise ValueError('Nonempty finite scores required')
     if len(scores)!=len(labels):raise ValueError('Scores and labels must align')
     values=np.unique(scores)
-    candidates=np.r_[values,np.nextafter(values[-1],np.inf)]
+    # The all-negative sentinel must exceed the same fixed roundoff band as runtime.
+    sentinel=values[-1]+128*np.finfo(np.float64).eps*max(1.,abs(values[-1]))
+    candidates=np.r_[values,sentinel] if np.isfinite(sentinel) else values
     best=None
     for threshold in candidates:
-        result=binary_metrics(labels,scores>=threshold)
+        result=binary_metrics(labels,meets_threshold(scores,threshold))
         key=(result['balanced_accuracy'],result['f1'],result['recall'],float(threshold))
         if best is None or key>best[0]:best=(key,float(threshold),result)
     return best[1],best[2]
@@ -139,7 +154,7 @@ def select_from_train_validation(ids,train_windows,train_labels,validation_windo
     threshold,result=calibrate_threshold(scores,validation_labels,partition='validation')
     return {'model':model,'threshold':threshold,'selected_spec':selected['spec'],'train_cv':selected['train_cv'],
             'train_cv_threshold':selected['train_cv_threshold'],'validation':result,'validation_scores':scores.tolist(),
-            'validation_at_train_cv_threshold':binary_metrics(validation_labels,scores>=selected['train_cv_threshold']),
+            'validation_at_train_cv_threshold':binary_metrics(validation_labels,meets_threshold(scores,selected['train_cv_threshold'])),
             'selection_partitions':['train','validation'],'candidates':rows,'folds':folds}
 
 

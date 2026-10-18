@@ -40,5 +40,15 @@ class ProvenanceTests(unittest.TestCase):
             self.assertEqual(versions['model']['type_classifier_sha256'],hashlib.sha256(b'types.npz').hexdigest())
             self.assertEqual(versions['parameters']['video_threshold'],-.354)
 
+    def test_point_localizer_is_bound_to_analysis_snapshot(self):
+        with TemporaryDirectory() as temporary:
+            root=Path(temporary);model=root/'model';model.mkdir();encoder=root/'encoder';encoder.mkdir()
+            for name in ('trained.npz','point-localizer.npz','point-localizer.json'):(model/name).write_bytes(name.encode())
+            (model/'config.json').write_text('{}');(encoder/'weights.pth').write_bytes(b'encoder')
+            config={'selected_variant':'trained','thresholds':{'trained':.5},'encoder':{},'point_localizer':'point-localizer.npz'}
+            versions=capture_versions(model,encoder,config,root=root)
+            self.assertEqual(versions['model']['point_localizer_sha256'],hashlib.sha256(b'point-localizer.npz').hexdigest())
+            self.assertEqual(versions['model']['point_localizer_metadata_sha256'],hashlib.sha256(b'point-localizer.json').hexdigest())
+
 
 if __name__ == '__main__':unittest.main()

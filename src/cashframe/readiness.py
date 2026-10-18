@@ -36,6 +36,10 @@ def validate_runtime(model_dir, encoder_dir):
     if (Path(model_dir) / 'types.npz').exists():
         from .taxonomy import classify_interval
         classify_interval(Path(model_dir) / 'types.npz', np.array([0., .5]), np.stack([vector, vector]), 0., .5, encoder_config=encoder.config)
+    if config.get('point_localizer'):
+        if config['point_localizer']!='point-localizer.npz':raise ValueError('Unsupported point localizer artifact')
+        from .point_localization import localized_events
+        localized_events(model_dir,np.array([0.,.5]),np.stack([vector,vector]),1.,True,encoder.config)
     return {'ready': True, 'encoder': encoder.config['model'], 'feature_dimensions': len(vector)}
 
 

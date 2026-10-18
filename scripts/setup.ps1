@@ -1,4 +1,4 @@
-param([string]$Python311)
+param([string]$Python311, [string]$EnvironmentDirectory = '.venv')
 $ErrorActionPreference = 'Stop'
 $env:PIP_DISABLE_PIP_VERSION_CHECK = '1'
 Set-Location (Split-Path $PSScriptRoot -Parent)
@@ -12,13 +12,14 @@ if (-not $Python311) {
 }
 & $Python311 -c 'import sys; assert sys.version_info[:2] == (3, 11)'
 if ($LASTEXITCODE -ne 0) { throw 'Python 3.11 is required.' }
-if (-not (Test-Path -LiteralPath '.venv\Scripts\python.exe')) {
-    & $Python311 -m venv .venv
+$environmentPython = Join-Path $EnvironmentDirectory 'Scripts/python.exe'
+if (-not (Test-Path -LiteralPath $environmentPython)) {
+    & $Python311 -m venv $EnvironmentDirectory
     if ($LASTEXITCODE -ne 0) { throw 'Python 3.11 environment creation failed.' }
 }
-& '.venv\Scripts\python.exe' -c 'import sys, site; assert sys.version_info[:2] == (3, 11); assert sys.prefix != sys.base_prefix; assert not site.ENABLE_USER_SITE'
-if ($LASTEXITCODE -ne 0) { throw 'Existing .venv must be an isolated Python 3.11 environment. Stop the service before replacing it.' }
-& '.venv\Scripts\python.exe' -m pip install -r requirements.lock
+& $environmentPython -c 'import sys, site; assert sys.version_info[:2] == (3, 11); assert sys.prefix != sys.base_prefix; assert not site.ENABLE_USER_SITE'
+if ($LASTEXITCODE -ne 0) { throw 'Selected environment must be an isolated Python 3.11 environment. Stop the service before replacing it.' }
+& $environmentPython -m pip install -r requirements.lock
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
 @'
 from importlib.metadata import version, PackageNotFoundError
@@ -27,11 +28,11 @@ try:
     sys.exit(0 if version('torch').split('+')[0] == '2.6.0' else 1)
 except PackageNotFoundError:
     sys.exit(1)
-'@ | & '.venv\Scripts\python.exe' -
+'@ | & $environmentPython -
 if ($LASTEXITCODE -ne 0) {
-    & '.venv\Scripts\python.exe' -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu --constraint requirements.lock
+    & $environmentPython -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu --constraint requirements.lock
     if ($LASTEXITCODE -ne 0) { throw 'CPU PyTorch installation failed.' }
 }
-& '.venv\Scripts\python.exe' -m pip check
+& $environmentPython -m pip check
 if ($LASTEXITCODE -ne 0) { throw 'Installed dependency versions are inconsistent.' }
 Write-Output 'Environment ready. Follow README to prepare weights, audit data and train.'

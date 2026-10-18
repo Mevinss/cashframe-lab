@@ -11,7 +11,7 @@ import psutil
 from cashframe.data import read_json,write_json,sha256_file
 from cashframe.learning import window_features,supervised_mask,load_model,model_scores,video_score
 from cashframe.research import (audit_partitions,binary_metrics,candidate_specs,
-    select_from_train_validation,save_frozen,load_frozen,score_videos)
+    select_from_train_validation,save_frozen,load_frozen,score_videos,meets_threshold)
 
 
 def cached_windows(gids,by_id,feature_dir,check_budget=lambda:None):
@@ -94,9 +94,9 @@ def main(argv=None):
         if sha256_file(feature_dir/(gid+'.npz'))!=digest:raise ValueError('Training/validation feature hash mismatch')
     windows=cached_windows(split['test'],by_id,feature_dir,check_budget)
     scores=score_videos(model,[r[1] for r in windows]);labels=[by_id[i]['label'] for i in split['test']]
-    rows=[{'group_id':gid,'truth':label,'score':float(score),'prediction':int(score>=threshold)} for gid,label,score in zip(split['test'],labels,scores)]
+    rows=[{'group_id':gid,'truth':label,'score':float(score),'prediction':int(meets_threshold(score,threshold))} for gid,label,score in zip(split['test'],labels,scores)]
     report={'status':'exploratory reuse of already-viewed test; no new-camera claim','selection_frozen_sha256':sha256_file(output/'selection-frozen.json'),
-            'selected':binary_metrics(labels,scores>=threshold),'constant_positive':binary_metrics(labels,np.ones(len(labels))),
+            'selected':binary_metrics(labels,meets_threshold(scores,threshold)),'constant_positive':binary_metrics(labels,np.ones(len(labels))),
             'constant_negative':binary_metrics(labels,np.zeros(len(labels))),
             'old':old_diagnostics(split['test'],by_id,windows,Path(args.old_model)),
             'per_video':rows,'threshold':threshold,'scoring_wall_sec':time.perf_counter()-start,

@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <title>CashFrame</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Видеоаудит</title>
   <link rel="stylesheet" href="/static/styles.css">
-  <link rel="icon" type="image/svg+xml" href="/static/brand/favicon.svg">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E">
   <script type="module" src="/static/app.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Перейти к содержимому</a>
   <aside id="sidebar" class="sidebar" aria-label="Основная навигация">
-    <div class="sidebar-brand"><img id="team-logo" src="/static/brand/favicon.svg" alt="Логотип команды" hidden><span class="brand-fallback">CashFrame</span><span class="brand-name" aria-hidden="true">CashFrame</span><small>Командный прототип · Datathon 2026</small></div>
+    <div class="sidebar-brand"><span class="brand-name">Видеоаудит</span></div>
     <nav class="side-nav" aria-label="Разделы приложения">
       <button type="button" data-view="overview" aria-label="Обзор" title="Обзор" aria-current="page"><span aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10H3V10Z"/><path d="M9 20v-7h6v7"/></svg></span><span class="nav-label">Обзор</span></button>
       <button type="button" data-view="upload" aria-label="Новая проверка" title="Новая проверка"><span aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="nav-label">Новая проверка</span></button>
@@ -24,21 +24,33 @@
   </aside>
   <header class="app-header">
     <div class="header-heading"><button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Свернуть боковую панель" title="Свернуть боковую панель"><span aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span></button><div class="app-title"><span class="header-section header-overview">Обзор</span><span class="header-section header-upload">Новая проверка</span><span class="header-section header-history">Результаты проверок</span><span class="header-section header-rules">Справочник правил</span><span class="header-section header-guide">Как работает</span><span class="header-section header-system">Состояние системы</span><span class="header-section header-processing">Обработка видео</span><span class="header-section header-result">Результат проверки</span></div></div>
-    <div class="header-right"><div class="header-meta"><span class="status-dot" aria-hidden="true"></span><span>Локальный анализ</span><span class="version-tag">Исследовательская версия</span></div><form id="access-form" class="header-access"><label for="api-key">Ключ доступа</label><input id="api-key" type="password" placeholder="Введите ключ один раз" autocomplete="off" spellcheck="false" required><button type="submit" class="secondary" id="apply-key">Подключить</button><span id="access-status" role="status">Не подключено</span></form></div>
+    <div class="header-right"><div class="preferences"><label for="language-select" class="visually-hidden">Язык интерфейса</label><select id="language-select"><option value="kk">Қазақша</option><option value="ru" selected>Русский</option><option value="en">English</option></select><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Включить тёмную тему"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 15.7A8.4 8.4 0 0 1 8.3 4 8.5 8.5 0 1 0 20 15.7Z"/></svg></button></div><div class="header-meta"><span class="status-dot" aria-hidden="true"></span><span>Локальный анализ</span><span class="version-tag">Исследовательская версия</span></div><form id="access-form" class="header-access"><label for="api-key">Ключ доступа</label><input id="api-key" type="password" placeholder="Введите ключ один раз" autocomplete="off" spellcheck="false" required><button type="submit" class="secondary" id="apply-key">Подключить</button><span id="access-status" role="status">Не подключено</span></form></div>
   </header>
   <main id="main">
     <nav id="workflow" aria-label="Ход проверки" class="workflow" hidden><ol><li id="step-upload">Загрузка</li><li id="step-processing">Обработка</li><li id="step-result">Результат</li></ol></nav>
     <div id="notice" class="notice" role="alert" hidden></div>
     <section id="overview-view">
       <div class="overview-hero">
-        <div class="hero-copy"><span class="eyebrow">Локальная проверка видео</span><h1>Все проверки<br>в одном месте</h1><p>Загрузите запись, найдите фрагменты для просмотра и вернитесь к результатам в любое время в пределах срока хранения.</p><button type="button" class="primary" data-open-upload>Начать новую проверку <span aria-hidden="true">↗</span></button><span class="hero-privacy">Видео и результаты остаются на этом компьютере</span></div>
-        <div class="hero-visual" aria-hidden="true"><div class="hero-visual-top"><span class="hero-visual-dot"></span><span>ВИДЕО · АНАЛИЗ · ПРОСМОТР</span><span class="hero-visual-mark">✦</span></div><div class="hero-video-frame"><span class="hero-play"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5L8 5.5Z"/></svg></span><div class="hero-frame-lines"><i></i><i></i><i></i></div></div><div class="hero-track"><span></span><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="hero-visual-foot"><span>01 <b>Загрузка</b></span><span>02 <b>Анализ</b></span><span>03 <b>Просмотр</b></span></div></div>
+        <div class="hero-copy"><h1>От видео<br>к фактам</h1><p>Загрузите видео, проверьте найденные фрагменты и сохраните отчёт.</p><button type="button" class="primary" data-open-upload>Начать проверку <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button><span class="hero-privacy">Видео обрабатывается на сервере этой установки</span></div>
+        <div class="hero-art">
+          <div id="hero-stage" class="hero-stage" role="group" aria-label="Декоративная видеокомпозиция">
+            <div class="art-orbit art-orbit-back" aria-hidden="true"></div>
+            <div id="hero-object" class="hero-object" tabindex="0" role="img" aria-label="Декоративная видеокомпозиция. Перетаскивайте или используйте стрелки; Home возвращает исходное положение." aria-describedby="hero-instructions">
+              <div class="reel reel-back" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="sculpture-screen" aria-hidden="true"><div class="screen-window"><span class="screen-frame frame-a"></span><span class="screen-frame frame-b"></span><span class="screen-frame frame-c"></span><span class="screen-line"></span><span class="screen-node"></span></div><div class="screen-track"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+              <div class="evidence-slip" aria-hidden="true"><span class="slip-image"></span><span class="slip-line"></span><span class="slip-line short"></span><span class="slip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 12 4 4 8-9"/></svg></span></div>
+              <div class="reel reel-front" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+              <span class="cyan-capsule" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="art-caption"><span id="hero-instructions">Перетащите композицию</span><button id="hero-reset" type="button" aria-label="Вернуть композицию в исходное положение">Сбросить</button></div>
+        </div>
       </div>
       <div class="section-heading"><div><h2>Состояние проверок</h2><p id="overview-period">Введите ключ в верхней панели, чтобы загрузить данные.</p></div><button id="load-overview" type="button" class="secondary">Обновить</button></div>
-      <div id="overview-metrics" class="metric-grid" aria-live="polite"><div class="metrics-locked"><span aria-hidden="true">✦</span><div><strong>Показатели появятся после подключения</strong><p>Введите ключ доступа в верхней панели, чтобы увидеть реальные проверки и время обработки.</p></div></div></div>
-      <div class="section-heading"><div><h2>Последняя активность</h2><p>Три последних задания; полный список находится в «Результатах проверок».</p></div></div><div id="overview-recent" class="plain-panel">Введите ключ в верхней панели.</div>
+      <div id="overview-metrics" class="metric-grid" aria-live="polite"><div class="metrics-locked"><div><strong>Подключитесь, чтобы увидеть показатели</strong><p>Введите ключ доступа в верхней панели.</p></div></div></div>
+      <div class="section-heading"><div><h2>Последняя активность</h2><p>Три последних задания. Все проверки — в истории.</p></div></div><div id="overview-recent" class="plain-panel">Введите ключ в верхней панели.</div>
     </section>
-    <section id="history-view" hidden><div class="page-heading"><span class="eyebrow">Архив текущей установки</span><h1>Результаты проверок</h1><p>Все доступные задания за срок хранения на этом компьютере. Откройте завершённую проверку, чтобы посмотреть видео, кадры и объяснение сигнала.</p></div><div class="section-heading"><h2>Список заданий</h2><label class="history-filter" for="history-filter">Статус<select id="history-filter"><option value="all">Все</option><option value="processing">В обработке</option><option value="done">Завершены</option><option value="failed">Ошибки</option></select></label></div><div id="history-list" class="plain-panel">Введите ключ в верхней панели.</div></section>
+    <section id="history-view" hidden><div class="page-heading"><h1>Результаты проверок</h1><p>Все доступные задания за срок хранения на этом компьютере. Откройте завершённую проверку, чтобы посмотреть видео, кадры и объяснение сигнала.</p></div><div class="section-heading"><h2>Список заданий</h2><label class="history-filter" for="history-filter">Статус<select id="history-filter"><option value="all">Все</option><option value="processing">В обработке</option><option value="done">Завершены</option><option value="failed">Ошибки</option></select></label></div><div id="history-list" class="plain-panel">Введите ключ в верхней панели.</div></section>
     <section id="rules-view" hidden><div class="page-heading"><h1>Справочник правил</h1><p>Проверенные источники проекта. Автоматическое сопоставление с видео отключено.</p></div><div id="rules-list" class="card-grid"></div></section>
     <section id="guide-view" hidden><div class="page-heading"><h1>Как работает</h1></div><div class="plain-panel guide-copy"><p>Загрузка видео → локальный анализ → сигналы модели → просмотр исходных кадров → решение проверяющего.</p><p>Бордовый акцент выделяет выбранный фрагмент и элементы просмотра. Серый маркер показывает сигнал модели; он не означает доказанное нарушение. Рамки и траектории не доступны: установленная модель анализирует временные фрагменты, но не определяет координаты объектов.</p><p>Видео анализируется по временным выборкам. Короткие действия и закрытые объекты могут быть пропущены. Проверяющий подтверждает видимый факт и применимость нормы отдельно.</p></div></section>
     <section id="system-view" hidden><div class="page-heading"><h1>Состояние системы</h1><p>Техническая готовность локальных компонентов, не оценка качества модели.</p></div><div id="system-details" class="plain-panel">Введите ключ в верхней панели.</div><button id="refresh-system" type="button" class="secondary">Проверить состояние</button></section>
@@ -53,26 +65,26 @@
             <span class="file-hint">MOV / MP4 · до 100 МБ · до 3 минут</span>
           </div>
           <div id="file-summary" class="file-summary" hidden><div><strong id="file-name"></strong><span id="file-size"></span></div><button id="remove-file" class="text-button" type="button">Убрать</button></div>
-          <div class="access-row"><p class="privacy-note">Видео обрабатывается локально. Ключ вводится один раз в верхней панели и хранится только до закрытия страницы.</p><button class="primary" id="analyze-button" type="submit" disabled>Начать проверку<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.5"/></svg></button></div>
+          <div class="access-row"><p class="privacy-note">Обработка на сервере установки. Ключ хранится только до закрытия страницы.</p><button class="primary" id="analyze-button" type="submit" disabled>Начать проверку<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.5"/></svg></button></div>
         </form>
-        <aside class="upload-aside"><h2>Что будет в результате</h2><dl class="explanation-list"><div><dt>Фрагменты и время</dt><dd>Сигналы модели на хронологии исходного видео.</dd></div><div><dt>Кадры для проверки</dt><dd>Оригинальные изображения до, во время и после события.</dd></div><div><dt>Проверка человеком</dt><dd>Возможность уточнить действие и сохранить подтверждённую разметку.</dd></div></dl><div class="research-note"><strong>Возможности модели ограничены</strong><p>Точность первого эксперимента пока недостаточна. Типы действий не подтверждены, автоматические нормативные выводы отключены.</p></div></aside>
+        <aside class="upload-aside"><h2>Что будет в результате</h2><dl class="explanation-list"><div><dt>Фрагменты и время</dt><dd>Сигналы модели на хронологии исходного видео.</dd></div><div><dt>Кадры для проверки</dt><dd>Исходные кадры и статус локализации.</dd></div><div><dt>Проверка человеком</dt><dd>Возможность уточнить действие и сохранить подтверждённую разметку.</dd></div></dl><div class="research-note"><strong>Возможности модели ограничены</strong><p>Новый ракурс и типы действий требуют отдельной оценки. Нормативное основание подтверждает проверяющий.</p></div></aside>
       </div>
     </section>
     <section id="processing-view" hidden aria-live="polite">
       <button id="resume-poll" type="button" class="secondary" hidden>Повторно получить результат</button>
-      <div class="processing-panel"><div class="activity" aria-hidden="true"></div><h1>Проверяем видео</h1><p id="processing-filename" class="filename"></p><div class="current-stage"><span>Текущий этап</span><strong id="processing-stage">Приём файла</strong></div><p id="elapsed" class="tabular">Прошло 0:00</p><p class="muted">Обработка может занять несколько минут. Оставьте эту страницу открытой.</p><p class="privacy-note">Отображается фактический этап, без расчётного процента готовности.</p></div>
+      <div class="processing-panel"><div class="activity" aria-hidden="true"></div><h1>Проверяем видео</h1><p id="processing-filename" class="filename"></p><div class="current-stage"><span>Текущий этап</span><strong id="processing-stage">Приём файла</strong></div><p id="elapsed" class="tabular">Прошло 0:00</p><p class="muted">Обработка может занять несколько минут. Оставьте эту страницу открытой.</p><div class="progress-measure"><progress id="processing-progress" max="100" aria-label="Измеренный прогресс текущего этапа"></progress><p id="progress-detail">Ожидаем измерения текущего этапа</p></div></div>
     </section>
     <section id="result-view" hidden>
-      <div class="result-heading"><div><span class="eyebrow">Результат локального анализа</span><h1 id="result-title"></h1><p id="result-subtitle"></p></div><div class="result-actions"><button id="download-report" type="button" class="primary">Скачать PDF-акт</button><button id="download-passport" type="button" class="secondary">Паспорт доказательств</button><button id="new-check" type="button" class="secondary">Проверить другое видео</button></div></div>
+      <div class="result-heading"><div><h1 id="result-title"></h1><p id="result-subtitle"></p></div><div class="result-actions"><button id="download-report" type="button" class="primary">Скачать PDF-акт</button><button id="download-passport" type="button" class="secondary">Паспорт доказательств</button><button id="new-check" type="button" class="secondary">Проверить другое видео</button></div></div>
       <div id="result-explanation" class="result-explanation" role="status"></div>
-      <p id="report-feedback" role="status" aria-live="polite"></p><p id="research-banner" class="research-banner">Сигнал модели требует проверки человеком. Типы событий и нормативные связи автоматически не определяются.</p>
+      <p id="report-feedback" role="status" aria-live="polite"></p><p id="research-banner" class="research-banner">Требует проверки человеком.</p>
       <div class="workspace">
         <section class="video-column" aria-label="Видео и хронология">
           <div class="video-surface"><video id="player" controls playsinline preload="metadata"></video><div id="video-error" class="video-error" hidden>Не удалось открыть видео в браузере. Кадры-доказательства доступны ниже.</div></div>
           <div class="overlay-controls" aria-label="Слои обнаружения"><label><input type="checkbox" disabled> Рамки</label><label><input type="checkbox" disabled> Траектории</label><label><input type="checkbox" disabled> Зоны</label><span>Детектор денег и трекер не настроены. Слои появятся после проверки отдельной модели.</span></div>
           <div class="timeline-panel"><div class="timeline-heading"><h2>Хронология</h2><span id="player-time" class="tabular">0:00 / 0:00</span></div><div id="timeline" class="timeline" aria-label="События на хронологии"><div id="selected-interval" class="selected-interval" hidden></div><div id="playhead" class="playhead"></div></div><input id="seek" type="range" min="0" max="1" step="0.05" value="0" aria-label="Положение на видео"><div class="timeline-legend"><span><i class="legend-sampled"></i>Выборочный анализ</span><span><i class="legend-event"></i>Сигнал для проверки</span><span>Полнота видимости не оценена</span></div><p class="timeline-note">Между выборками и при ограниченной видимости возможны пропуски.</p></div>
         </section>
-        <aside class="event-panel"><div class="event-panel-heading"><h2>Фрагменты для просмотра <span id="event-count"></span></h2><label class="sort-label" for="event-sort">Порядок<select id="event-sort"><option value="priority">По приоритету</option><option value="time">По времени</option></select></label></div><div id="event-list" class="event-list"></div><p class="event-panel-note">Это предложения модели, а не доказанные нарушения. Приоритет задаётся политикой команды отдельно от оценки модели.</p></aside>
+        <aside class="event-panel"><div class="event-panel-heading"><h2>Фрагменты для просмотра <span id="event-count"></span></h2><label class="sort-label" for="event-sort">Порядок<select id="event-sort"><option value="priority">По приоритету</option><option value="time">По времени</option></select></label></div><div id="event-list" class="event-list"></div></aside>
       </div>
       <section id="motion-panel" class="timeline-panel" hidden aria-label="Изменения изображения">
         <h2>Изменения изображения по времени</h2>
@@ -85,7 +97,7 @@
         <div class="detail-layout">
           <div class="fact-panel">
             <h3>Почему возник сигнал</h3><p id="detail-description"></p>
-            <h3>Применимое правило</h3><p id="rule-description">Не сопоставлено: конкретный тип действия требует подтверждения.</p>
+            <h3>Применимое правило</h3><div id="rule-description">Не сопоставлено: конкретный тип действия требует подтверждения.</div>
             <h3>Что видно</h3><p>Исходные кадры доступны слева. Содержимое и условия видимости оценивает проверяющий.</p><h3>Что невозможно установить</h3><p>По текущей модели нельзя установить деньги, их перемещение и полноту видимости.</p><p id="priority-reason" class="muted"></p>
           </div>
           <div class="evidence-section"><h3>Исходные кадры</h3><div id="evidence" class="evidence-grid"></div><p class="caption">Оригинальные JPEG-кадры. Нажмите на изображение, чтобы открыть его полностью.</p></div>
@@ -96,7 +108,7 @@
       <details class="limitations"><summary>Ограничения этой проверки</summary><ul id="limitations-list"></ul><p id="measurements" class="tabular"></p></details>
     </section>
   </main>
-  <footer><span>Результат помогает проверить видео и не является дисциплинарным или юридическим заключением.</span><a href="https://adilet.zan.kz/rus/docs/V1900019680" target="_blank" rel="noopener noreferrer">Открытый нормативный источник</a></footer>
+  <footer><span>Видеоаудит · предварительная проверка</span><a href="https://adilet.zan.kz/rus/docs/V1900019680" target="_blank" rel="noopener noreferrer">Открытый нормативный источник</a></footer>
   <dialog id="frame-dialog" aria-label="Оригинальный кадр"><button id="close-frame" class="secondary" type="button">Закрыть</button><img id="full-frame" alt="Оригинальный кадр выбранного события"></dialog>
 </body>
 </html>

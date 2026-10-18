@@ -122,12 +122,15 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(client.get('/health/ready').status_code,503)
 
     def test_expired_job_deadline_is_failed(self):
-        self.settings.deadline_sec=.3
         def slow(*args):
-            time.sleep(.35)
+            # Exhaust the budget after acceptance, so machine load cannot make
+            # this a test of multipart upload time instead of worker expiry.
+            self.settings.deadline_sec=0
             return {'verdict':'no_violation','violations':[]},{}
         with TestClient(create_app(self.settings,analyzer=slow)) as client:
-            jid=self.post(client).json()['job_id']
+            accepted=self.post(client)
+            self.assertEqual(accepted.status_code,202)
+            jid=accepted.json()['job_id']
             result=self.wait(client,jid)
             self.assertEqual(result,{'job_id':jid,'status':'failed','error':'processing_deadline'})
 

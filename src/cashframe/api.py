@@ -21,6 +21,9 @@ from .video import probe_video
 from .worker import Worker
 from .reporting import read_annotations,report_files
 from .readiness import RuntimeReadiness
+from .progress import job_progress
+from .compliance import event_compliance
+from typing import Literal
 
 
 class UploadTooLarge(Exception):pass
@@ -110,10 +113,12 @@ def create_app(settings=None,analyzer=None):
                 'failed':sum(job['status']=='failed' for job in jobs),
                 'average_processing_sec':round(sum(measured)/len(measured),2) if measured else None,
                 'recent':[{'job_id':job['job_id'],'status':job['status'],'filename':job.get('filename'),
+                           'verdict':job.get('result',{}).get('verdict'),
                            'created_at':job['created_at'],'elapsed_sec':job.get('elapsed_sec'),
                            'signal_count':len(job.get('result',{}).get('violations',[])) if job['status']=='done' else None}
                           for job in jobs[:10]],
                 'jobs':[{'job_id':job['job_id'],'status':job['status'],'filename':job.get('filename'),
+                         'verdict':job.get('result',{}).get('verdict'),
                          'created_at':job['created_at'],'elapsed_sec':job.get('elapsed_sec'),
                          'signal_count':len(job.get('result',{}).get('violations',[])) if job['status']=='done' else None}
                         for job in jobs]}
@@ -199,7 +204,13 @@ def create_app(settings=None,analyzer=None):
     def review(job_id:str):
         job=get_job(job_id)
         return {'job_id':job_id,'status':job['status'],'stage':job['stage'],'filename':job.get('filename'),
-                'elapsed_sec':job.get('elapsed_sec'),'review':job.get('review')}
+                'elapsed_sec':job.get('elapsed_sec'),'progress':job_progress(job),'review':job.get('review')}
+
+    @app.get('/api/v1/jobs/{job_id}/compliance',dependencies=[Depends(authorize)])
+    def compliance(job_id:str):
+        job=get_job(job_id)
+        with annotation_lock:records=read_annotations(settings.local,job_id)
+        return {'job_id':job_id,'events':event_compliance(job,read_json(ROOT/'config/rules.json')['rules'],records)}
 
     @app.get('/api/v1/jobs/{job_id}/objects',dependencies=[Depends(authorize)])
     def objects(job_id:str):
@@ -217,13 +228,13 @@ def create_app(settings=None,analyzer=None):
     @app.get('/api/v1/rules',dependencies=[Depends(authorize)])
     def rules():return read_json(ROOT/'config/rules.json')
 
-    def download_report(job_id,kind):
+    def download_report(job_id,kind,language='ru'):
         with report_lock:
             job=get_job(job_id)
             if job['status']!='done':raise HTTPException(409,'Отчёт доступен после успешного завершения анализа.')
             try:
                 with annotation_lock:annotations=read_annotations(settings.local,job_id)
-                folder,integrity=report_files(job,jobs_dir/job_id,read_json(ROOT/'config/rules.json')['rules'],annotations)
+                folder,integrity=report_files(job,jobs_dir/job_id,read_json(ROOT/'config/rules.json')['rules'],annotations,language=language)
                 name='report.pdf' if kind=='pdf' else 'passport.json'
                 data=(folder/name).read_bytes()
             except (ValueError,KeyError,OSError):
@@ -234,10 +245,10 @@ def create_app(settings=None,analyzer=None):
                                      'X-Passport-SHA256':integrity['passport.json']})
 
     @app.get('/api/v1/jobs/{job_id}/report.pdf',dependencies=[Depends(authorize)])
-    def report_pdf(job_id:str):return download_report(job_id,'pdf')
+    def report_pdf(job_id:str,language:Literal['ru','kk','en']='ru'):return download_report(job_id,'pdf',language)
 
     @app.get('/api/v1/jobs/{job_id}/passport',dependencies=[Depends(authorize)])
-    def passport(job_id:str):return download_report(job_id,'passport')
+    def passport(job_id:str,language:Literal['ru','kk','en']='ru'):return download_report(job_id,'passport',language)
 
     @app.get('/api/v1/jobs/{job_id}/annotations',dependencies=[Depends(authorize)])
     def annotations(job_id:str):

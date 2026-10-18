@@ -53,7 +53,8 @@ def analyze_video(path,model_dir,work_dir,stage_callback=lambda s:None,encoder_d
     encoder=Encoder(encoder_dir or model_dir.parent/'encoder')
     if encoder.config!=config['encoder']:raise ValueError('Trained model and encoder/config do not match')
     stage_callback('extracting_features')
-    sequence=extract_features(path,encoder)
+    progress_callback=getattr(stage_callback,'progress',None)
+    sequence=extract_features(path,encoder,progress_callback=progress_callback)
     type_sequence=sequence
     stage_callback('scoring_windows')
     window_parameters=inference_window_parameters(config)
@@ -63,25 +64,35 @@ def analyze_video(path,model_dir,work_dir,stage_callback=lambda s:None,encoder_d
     classifier_status='original'
     if config.get('video_classifier'):
         if config['video_classifier']!='selected.npz':raise ValueError('Unsupported video classifier artifact')
-        from .research import load_frozen,score_videos
+        from .research import load_frozen,score_videos,meets_threshold
         candidate,candidate_threshold,candidate_metadata=load_frozen(model_dir,expected_encoder=encoder.config)
         if candidate_metadata.get('encoder')!=encoder.config:raise ValueError('Video classifier encoder mismatch')
-        positive=float(score_videos(candidate,[windows])[0])>=candidate_threshold
+        positive=bool(meets_threshold(score_videos(candidate,[windows])[0],candidate_threshold))
         classifier_status='experimental-v2'
     else:positive=video_score(model,windows)>=threshold
     versions=capture_versions(model_dir,encoder.path,config,video_threshold=candidate_threshold if config.get('video_classifier') else None)
     versions['parameters']['event_threshold']=float(event_threshold)
+    versions['parameters']['window_aggregation']='input-dtype-preserved'
+    if config.get('video_classifier'):versions['parameters']['threshold_roundoff_epsilon_multiplier']=32
     versions['parameters']['localization_guard']={'flat_range':1e-6,'max_coverage_fraction':.8,'max_events':12}
-    events=propose_events(centers,scores,event_threshold,info.duration_sec,positive)
+    point_enabled=bool(config.get('point_localizer'))
+    if point_enabled:
+        if config['point_localizer']!='point-localizer.npz':raise ValueError('Unsupported point localizer artifact')
+        from .point_localization import localized_events,load_point_localizer
+        events=localized_events(model_dir,sequence.times,sequence.values,info.duration_sec,positive,encoder.config)
+        _,point_metadata=load_point_localizer(model_dir,encoder.config)
+        versions['parameters']['point_localizer_guard']=point_metadata['guard']
+        versions['parameters']['point_localizer_score_kind']='uncalibrated temporal proposal score'
+    else:events=propose_events(centers,scores,event_threshold,info.duration_sec,positive)
     refinement_status='not_needed'
-    if events and all(e['localization_status']!='unresolved' for e in events) and should_refine(sequence.wall_sec,time.perf_counter()-start,info.duration_sec,events,budget_sec):
+    if not point_enabled and events and all(e['localization_status']!='unresolved' for e in events) and should_refine(sequence.wall_sec,time.perf_counter()-start,info.duration_sec,events,budget_sec):
         refinement_status='performed'
         stage_callback('refining_intervals')
         sequence=refine_features(sequence,iter_samples(path,8.,encoder.config['input_size'],timestamps=sequence.source_times),encoder,events)
         centers,windows=window_features(sequence.times,sequence.values,info.duration_sec,**window_parameters)
         scores=model_scores(model,windows)
         events=propose_events(centers,scores,event_threshold,info.duration_sec,positive)
-    elif events:refinement_status='unresolved_localization' if events[0]['localization_status']=='unresolved' else 'skipped_budget'
+    elif events:refinement_status='point_localizer_4fps' if point_enabled else 'unresolved_localization' if events[0]['localization_status']=='unresolved' else 'skipped_budget'
     versions['parameters']['refinement_fps']=8. if refinement_status=='performed' else 0.
     stage_callback('evidence')
     violations=[]
@@ -94,6 +105,7 @@ def analyze_video(path,model_dir,work_dir,stage_callback=lambda s:None,encoder_d
         requests.extend(points)
     evidence_start=time.perf_counter()
     extracted=evidence_frames(path,requests,times=sequence.source_times) if requests else []
+    if requests and progress_callback:progress_callback(len(extracted),len(requests),'frames')
     evidence_sec=time.perf_counter()-evidence_start
     for index,event in enumerate(events):
         from .taxonomy import classify_interval
@@ -116,6 +128,7 @@ def analyze_video(path,model_dir,work_dir,stage_callback=lambda s:None,encoder_d
                                 'sample_count':len(sequence.observations or []),
                                 'notice':'Техническое качество кадров не подтверждает видимость действия и условий нормы.'},
             'video_classifier_status':classifier_status,
+            'localization_profile':'weak-point-v1' if point_enabled else 'window-v1',
             'preview_status':'pending',
             'refinement_status':refinement_status,
             'metadata':{'size_bytes':path.stat().st_size,'duration_sec':info.duration_sec,'width':info.width,'height':info.height,

@@ -75,16 +75,23 @@ def frame_times(path):
     return times
 
 
-def iter_samples(path, sample_fps=4., size=224, timestamps=None):
-    if not 0 < sample_fps <= 30 or size < 8:
-        raise ValueError('Invalid sampling configuration')
-    times = frame_times(path) if timestamps is None else timestamps
+def sample_timestamps(times,sample_fps):
+    if not 0 < sample_fps <= 30 or not len(times):raise ValueError('Invalid sampling configuration')
     period = 1 / sample_fps - 1e-6
     selected, previous = [], -float('inf')
     for timestamp in times:
         if timestamp - previous >= period:
             selected.append(timestamp - times[0])
             previous = timestamp
+    return selected
+
+
+def iter_samples(path, sample_fps=4., size=224, timestamps=None):
+    if not 0 < sample_fps <= 30 or size < 8:
+        raise ValueError('Invalid sampling configuration')
+    times = frame_times(path) if timestamps is None else timestamps
+    selected=sample_timestamps(times,sample_fps)
+    period=1/sample_fps-1e-6
     select = f"select=isnan(prev_selected_t)+gte(t-prev_selected_t\\,{period}),scale={size}:{size}"
     command = ['ffmpeg', '-nostdin', '-v', 'error', '-copyts', '-threads', '1', '-protocol_whitelist', 'file,pipe', '-i', str(path), '-an', '-vf', select,
                '-fps_mode', 'vfr', '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:1']

@@ -35,4 +35,9 @@ def capture_versions(model_dir, encoder_dir, config, *, root=ROOT, video_thresho
         if video_threshold is None:raise ValueError('Effective video classifier threshold is required')
         snapshot['parameters']['video_threshold']=float(video_threshold)
     if (model_dir/'types.npz').exists():snapshot['model']['type_classifier_sha256']=sha256_file(model_dir/'types.npz')
+    if config.get('point_localizer'):
+        if config['point_localizer']!='point-localizer.npz':raise ValueError('Unsupported point localizer artifact')
+        snapshot['model']['point_localizer_sha256']=sha256_file(model_dir/'point-localizer.npz')
+        snapshot['model']['point_localizer_metadata_sha256']=sha256_file(model_dir/'point-localizer.json')
+        snapshot['model']['id']+='+weak-point-v1'
     return snapshot

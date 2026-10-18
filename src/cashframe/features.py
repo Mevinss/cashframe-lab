@@ -9,7 +9,7 @@ import warnings
 import numpy as np
 
 from .data import read_json, sha256_file, write_json
-from .video import iter_samples,frame_times
+from .video import iter_samples,frame_times,sample_timestamps
 from .numerics import finite_array
 
 REVISION = '7764ea0f912e53c92e82eb78a2a1631e92725fc8'
@@ -76,18 +76,21 @@ class Encoder:
         return finite_array(vector, 'DINOv2 embedding', 1).astype(np.float32)
 
 
-def extract_features(path, encoder, sample_fps=None):
+def extract_features(path, encoder, sample_fps=None, progress_callback=None):
     from .visual_quality import inspect_sample
     start = time.perf_counter()
     times, vectors = [], []
     fps = sample_fps or encoder.config['sample_fps']
     source_times=frame_times(path)
+    total=len(sample_timestamps(source_times,fps))
+    if progress_callback:progress_callback(0,total,'samples')
     observations=[];previous=None;previous_time=None
     for timestamp, image in iter_samples(path, fps, encoder.config['input_size'],timestamps=source_times):
         previous,quality=inspect_sample(image,previous,timestamp-previous_time if previous_time is not None else None)
         observations.append({'timestamp_sec':float(timestamp),**quality});previous_time=timestamp
         times.append(timestamp)
         vectors.append(encoder.encode(image))
+        if progress_callback:progress_callback(len(vectors),total,'samples')
     if not vectors:
         raise ValueError('No visual samples could be extracted')
     return FeatureSequence(np.asarray(times, dtype=np.float64), np.stack(vectors), time.perf_counter() - start,source_times,observations)

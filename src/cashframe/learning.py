@@ -11,7 +11,11 @@ from .numerics import finite_array, finite_scalar
 
 def window_features(times, features, duration_sec, radius=1., stride=.5):
     times = finite_array(times, 'sample timestamps', 1)
-    features = finite_array(features, 'encoder features', 2)
+    # Validate without changing the aggregation dtype used to fit frozen heads.
+    # Embeddings are float32; promoting before mean/std subtly shifts boundaries.
+    original_features=np.asarray(features)
+    finite_array(original_features, 'encoder features', 2)
+    features=original_features if original_features.dtype.kind=='f' else original_features.astype(np.float64)
     duration_sec = finite_scalar(duration_sec, 'duration', positive=True)
     radius = finite_scalar(radius, 'window radius', positive=True)
     stride = finite_scalar(stride, 'window stride', positive=True)
