@@ -46,6 +46,17 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'api-key.txt'):
             launcher.resolve_api_key(self.root, '')
 
+    def test_jury_handoff_uses_effective_key_without_rotating_installation(self):
+        key = launcher.resolve_api_key(self.root, '')
+        path = launcher.write_jury_access(self.root, key, '0.0.0.0', 8100)
+        content = path.read_text(encoding='utf-8')
+        self.assertIn('http://127.0.0.1:8100/', content)
+        self.assertIn(key, content)
+        self.assertEqual(launcher.resolve_api_key(self.root, ''), key)
+        launcher.write_jury_access(self.root, 'env-effective-key', '127.0.0.1', 8000)
+        self.assertIn('env-effective-key', path.read_text(encoding='utf-8'))
+        self.assertEqual(launcher.resolve_api_key(self.root, ''), key)
+
 
 if __name__ == '__main__':
     unittest.main()

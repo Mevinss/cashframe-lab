@@ -29,7 +29,7 @@ async function request(path,options={}){
   for(let attempt=0;;attempt++){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
     try{
-      const response=await fetch(path,{...fetchOptions,signal:controller.signal,headers:{'X-API-Key':state.key,...options.headers}});
+      const response=await fetch(path,{...fetchOptions,credentials:'same-origin',signal:controller.signal,headers:{...(state.key?{'X-API-Key':state.key}:{}),...options.headers}});
       const body=await response.arrayBuffer();
       if(!response.ok){let detail;try{detail=JSON.parse(new TextDecoder().decode(body)).detail;}catch{}const error=new Error(typeof detail==='string'&&hasTranslation(detail)?tr(detail):response.status===401?tr('Ключ не принят'):response.status===413?tr('Размер видео превышает 100 МБ. Выберите файл меньшего размера.'):tr`Ошибка сервиса (${response.status}). Повторите попытку.`);error.status=response.status;throw error;}
       return new Response(body,{status:response.status,headers:response.headers});
@@ -49,7 +49,7 @@ sidebarToggle.addEventListener('click',()=>{
   sidebarToggle.setAttribute('aria-label',label);
   sidebarToggle.title=label;
 });
-function currentKey(){return state.authorized?state.key:'';}
+function currentKey(){return state.authorized;}
 function verdictLabel(verdict){return verdict==='violation'?ru.resultPositive:verdict==='no_violation'?ru.resultNegative:tr('Вердикт недоступен');}
 function jobLabel(job){const outcome=job.status==='done'?verdictLabel(job.verdict):job.status==='processing'?tr('В обработке'):tr('Ошибка обработки');return `${job.filename||tr('Видео')} · ${new Date(job.created_at*1000).toLocaleString(locale())} · ${outcome}`;}
 function displayEventTitle(event,meta){return meta.localization_status==='unresolved'?tr('Момент события не установлен'):event.type.startsWith('Визуальный сигнал')?tr('Тип действия не определён'):event.type;}
@@ -79,8 +79,12 @@ $('load-overview').addEventListener('click',loadOverview);$('refresh-system').ad
 $('history-filter').addEventListener('change',renderHistory);
 $('api-key').addEventListener('input',()=>{if($('api-key').value.trim()!==state.key){state.key='';state.authorized=false;state.overview=null;renderLockedMetrics();$('overview-recent').textContent=tr('Нажмите «Подключить», чтобы загрузить данные.');$('history-list').textContent=tr('Нажмите «Подключить», чтобы загрузить данные.');$('access-status').textContent=tr('Не подключено');controls();}});
 $('access-form').addEventListener('submit',async event=>{event.preventDefault();const candidate=$('api-key').value.trim();if(!candidate){message(tr('Введите ключ доступа.'));return;}state.key=candidate;state.authorized=false;$('access-status').textContent=tr('Проверяем ключ…');
-  try{const data=await(await request('/api/v1/overview',{retries:0})).json();state.authorized=true;$('access-status').textContent=tr('Подключено');message('');renderOverview(data);controls();}
+  try{await request('/api/v1/session',{method:'POST',retries:0});state.key='';$('api-key').value='';const data=await(await request('/api/v1/overview',{retries:0})).json();state.authorized=true;$('access-status').textContent=tr('Подключено');message('');renderOverview(data);controls();}
   catch(error){state.key='';state.authorized=false;$('access-status').textContent=tr('Ключ не принят');message(error.message);controls();}});
+async function restoreSession(){
+  try{const data=await(await request('/api/v1/session',{retries:0})).json();if(data.authenticated!==true)return;state.authorized=true;state.key='';$('api-key').value='';$('access-status').textContent=tr('Подключено');controls();await loadOverview();}
+  catch{/* A fresh browser enters the same shared key once. */}
+}
 async function pollJob(generation){
   const deadline=Date.now()+360000;
   $('resume-poll').hidden=true;
@@ -329,3 +333,4 @@ function refreshLanguage(){
 initPreferences(refreshLanguage);
 heroCarousel=initHeroCarousel();
 renderLockedMetrics();
+void restoreSession();

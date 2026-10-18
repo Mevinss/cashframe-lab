@@ -26,6 +26,28 @@ function app({reducedMotion=false,pageHidden=false}={}){
   return {context,nodes,storage,carouselTimers,nextCarouselDelay(){return carouselTimers.values().next().value?.delay;},setBannerVisible(value){onIntersection([{isIntersecting:value}]);},advanceCarousel(){const entry=carouselTimers.entries().next().value;assert.ok(entry,'carousel should be scheduled');carouselTimers.delete(entry[0]);entry[1].callback();},run:code=>vm.runInContext(code,context)};
 }
 function text(node){return [node.textContent,...node.children.map(text)].join(' ');}
+
+test('shared jury login exchanges key for cookie access and clears browser key memory',async()=>{
+  const a=app(),calls=[];
+  a.context.fetch=async(path,options)=>{calls.push({path,options});return new Response(JSON.stringify(path==='/api/v1/session'?{authenticated:true}:{retention_hours:24,available:0,processing:0,done_with_signals:0,failed:0,average_processing_sec:null,recent:[],jobs:[]}));};
+  a.nodes.get('api-key').value='jury-fixture-key';
+  await a.nodes.get('access-form').listeners.submit({preventDefault(){}});
+  assert.equal(calls[0].path,'/api/v1/session');assert.equal(calls[0].options.method,'POST');
+  assert.equal(calls[0].options.headers['X-API-Key'],'jury-fixture-key');
+  assert.equal(a.run('state.authorized'),true);assert.equal(a.run('state.key'),'');
+  assert.equal(a.nodes.get('api-key').value,'');
+  assert.equal(calls.at(-1).options.headers['X-API-Key'],undefined);
+  assert.equal(calls.at(-1).options.credentials,'same-origin');
+  assert.equal([...a.storage.values()].includes('jury-fixture-key'),false);
+});
+
+test('reload restores browser session without reading or transmitting an API key',async()=>{
+  const a=app(),calls=[];
+  a.context.fetch=async(path,options)=>{calls.push({path,options});return new Response(JSON.stringify(path==='/api/v1/session'?{authenticated:true}:{retention_hours:24,available:0,processing:0,done_with_signals:0,failed:0,average_processing_sec:null,recent:[],jobs:[]}));};
+  await a.run('restoreSession()');
+  assert.equal(a.run('state.authorized'),true);assert.equal(a.run('state.key'),'');
+  assert.equal(calls.every(call=>call.options.headers['X-API-Key']===undefined),true);
+});
 const event=`{type:'Визуальный сигнал',timecode_sec:0,description:'unlocalized fixture',evidence_frames:[{timestamp_sec:0,image_base64:'synthetic-fixture'}]}`;
 function seed(a,verdict='violation',events=event,meta="{localization_status:'unresolved',id:'event-1'}"){
   a.run(`state.jobId='fixture';state.review={filename:'synthetic.mov',review:{duration_sec:65.3,events:[${meta}]}};state.result={status:'done',verdict:'${verdict}',violations:[${events}]};request=async()=>{const error=new Error('optional unavailable');error.status=404;throw error;}`);

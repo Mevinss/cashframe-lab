@@ -23,6 +23,8 @@ from .reporting import read_annotations,report_files
 from .readiness import RuntimeReadiness
 from .progress import job_progress
 from .compliance import event_compliance
+from .browser_auth import BrowserSessions, COOKIE_NAME, SESSION_SECONDS
+from .model_capabilities import classifier_capabilities
 from typing import Literal
 
 
@@ -81,9 +83,42 @@ def create_app(settings=None,analyzer=None):
     app=FastAPI(title='Локальная проверка видео',lifespan=lifespan)
     app.add_middleware(LimitBody,limit=settings.max_upload_bytes+1024*1024)
     key_header=APIKeyHeader(name='X-API-Key',auto_error=False)
-    def authorize(key=Depends(key_header)):
+    browser_sessions=BrowserSessions()
+    def authorize_key(key=Depends(key_header)):
         if not settings.api_key or not key or not hmac.compare_digest(key.encode('utf-8'),settings.api_key.encode('utf-8')):
             raise HTTPException(401,'Неверный или отсутствующий API-ключ.')
+    def same_origin(request):
+        origin=request.headers.get('origin')
+        expected=f'{request.url.scheme}://{request.url.netloc}'
+        if origin and origin!=expected:
+            raise HTTPException(403,'Запрос разрешён только с сайта этой установки.')
+    def authorize(request:Request,key=Depends(key_header)):
+        if key is not None:
+            return authorize_key(key)
+        if not settings.api_key or not browser_sessions.valid(request.cookies.get(COOKIE_NAME)):
+            raise HTTPException(401,'Неверный или отсутствующий API-ключ.')
+        if request.method not in ('GET','HEAD','OPTIONS'):
+            same_origin(request)
+
+    @app.post('/api/v1/session',dependencies=[Depends(authorize_key)])
+    def browser_login(request:Request):
+        same_origin(request)
+        browser_sessions.revoke(request.cookies.get(COOKIE_NAME))
+        response=JSONResponse({'authenticated':True},headers={'Cache-Control':'no-store'})
+        response.set_cookie(COOKIE_NAME,browser_sessions.issue(),max_age=SESSION_SECONDS,
+                            httponly=True,secure=request.url.scheme=='https',samesite='strict',path='/api/v1')
+        return response
+
+    @app.get('/api/v1/session',dependencies=[Depends(authorize)])
+    def browser_session():
+        return JSONResponse({'authenticated':True},headers={'Cache-Control':'no-store'})
+
+    @app.delete('/api/v1/session',dependencies=[Depends(authorize)])
+    def browser_logout(request:Request):
+        browser_sessions.revoke(request.cookies.get(COOKIE_NAME))
+        response=JSONResponse({'authenticated':False},headers={'Cache-Control':'no-store'})
+        response.delete_cookie(COOKIE_NAME,path='/api/v1',httponly=True,samesite='strict')
+        return response
     def get_job(jid):
         job=store.get(jid)
         if not job:raise HTTPException(404,'Задание не найдено.')
@@ -129,6 +164,7 @@ def create_app(settings=None,analyzer=None):
         available=await asyncio.to_thread(ready)
         return {'ready':available,'model_profile':settings.model_dir.name,
                 'money_detector':'not_configured','tracking':'not_configured',
+                'type_classifier':classifier_capabilities(settings.model_dir),
                 'retention_hours':settings.retention_hours,'mode':'research'}
 
     @app.post('/api/v1/analyze',status_code=202,dependencies=[Depends(authorize)])

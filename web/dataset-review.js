@@ -55,7 +55,7 @@ preferences();
 $('review-language').addEventListener('change',()=>{const message=noticeKey;lang=$('review-language').value;preferences();typeOptions();if(message)notice(t(message));if(data)renderSources();for(const [i,node] of [...$('review-events').children].entries()){node.querySelector('legend').textContent=`${t('event')} ${i+1}`;const field=node.querySelector('[data-field="type_id"]'),item=category(field.value)||annotationTemplate(field.value);if(item)field.value=item.labels[lang];templateOptions(node);templateButton(node);ruleHint(node);}const source=currentSource();if(source)$('source-meta').textContent=`${clock(source.duration_sec)} · ${source.label?t('signal'):t('normal')} · ${source.partition}`;});
 $('review-theme').addEventListener('click',()=>{theme=theme==='dark'?'light':'dark';preferences();});
 async function request(path,options={}){
-  const response=await fetch(path,{...options,headers:{'X-API-Key':key,...options.headers},cache:'no-store'});
+  const response=await fetch(path,{...options,credentials:'same-origin',headers:{...(key?{'X-API-Key':key}:{}),...options.headers},cache:'no-store'});
   if(!response.ok){
     let field=null;
     if(response.status===422){try{const body=await response.json();if(body.detail&&typeof body.detail==='object'&&body.detail.field==='reviewer')field='reviewer';}catch{}}

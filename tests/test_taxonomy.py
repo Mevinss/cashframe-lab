@@ -54,6 +54,9 @@ class TaxonomyTests(unittest.TestCase):
             self.assertEqual(candidate['type'], expected)
             self.assertIs(candidate['confirmed'], False)
             self.assertNotIn('rule_id', candidate)
+            self.assertEqual(candidate['score_kind'], 'uncalibrated_margin')
+            import hashlib
+            self.assertEqual(candidate['artifact_sha256'], hashlib.sha256(self.artifact.read_bytes()).hexdigest())
 
     def test_no_labels_does_not_create_or_replace_artifact(self):
         self.rows = []

@@ -298,7 +298,9 @@ def predict_type(artifact_path, event_feature, encoder_config=None):
         return None
     index, margin = candidate
     return {'type': metadata['labels'][index], 'confidence': margin, 'origin': 'automatic',
-            'confirmed': False, 'model_version': metadata['version']}
+            'score_kind': 'uncalibrated_margin',
+            'confirmed': False, 'model_version': metadata['version'],
+            'artifact_sha256': hashlib.sha256(Path(artifact_path).read_bytes()).hexdigest()}
 
 
 def classify_interval(artifact_path, times, values, start, end, encoder_config=None):

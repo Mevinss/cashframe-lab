@@ -51,6 +51,25 @@ def resolve_api_key(root: Path, supplied: str):
     return key
 
 
+def write_jury_access(root: Path, key: str, host: str, port: int):
+    """Write a private handoff for this installation, never a repository secret."""
+    path = root / 'local' / 'jury-access.txt'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    browser_host = '127.0.0.1' if host in ('0.0.0.0','::') else host
+    if ':' in browser_host and not browser_host.startswith('['):
+        browser_host = f'[{browser_host}]'
+    content = (f'Доступ для жюри\n\nСайт: http://{browser_host}:{port}/\n'
+               f'Общий API-ключ: {key}\n\n'
+               'Сайт: введите этот ключ один раз и нажмите «Подключить». Сессия действует 8 часов.\n'
+               'API: передавайте тот же ключ в заголовке X-API-Key.\n'
+               'Для доступа с другого компьютера используйте адрес сервера в локальной сети.\n'
+               'Файл содержит секрет доступа: передавайте только жюри и команде.\n')
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(content, encoding='utf-8')
+    temporary.replace(path)
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser(description='Start local video review using .env and .env.local')
     parser.add_argument('--host', help='Override CASHFRAME_HOST')
@@ -70,8 +89,8 @@ def main():
         parser.error(str(error))
     from .api import create_app
     import uvicorn
-    if not values['CASHFRAME_API_KEY'].strip():
-        print('Access key: local/api-key.txt (enter it in the interface).', flush=True)
+    write_jury_access(ROOT, settings.api_key, host, port)
+    print('Jury access instructions: local/jury-access.txt (private; not in Git).', flush=True)
     if not (settings.model_dir / 'config.json').is_file():
         print('Model not installed. Follow docs/team-setup.md before analyzing videos.', flush=True)
     uvicorn.run(create_app(settings), host=host, port=port)
