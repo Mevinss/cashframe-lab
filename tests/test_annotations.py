@@ -52,6 +52,7 @@ class AnnotationTests(unittest.TestCase):
 
     def test_placeholder_type_cannot_be_confirmed(self):
         item={'start_sec':0,'end_sec':1,'confirmed':True,'origin':'human','reviewer':'test','observed_fact':'fact','type':'unknown','rule_status':'unresolved'}
-        for label in ('unknown','unconfirmed_event','unconfirmed event','Тип не установлен','Визуальный сигнал — тип не подтверждён'):
+        for label in ('unknown','unconfirmed_event','unconfirmed event','Тип не установлен','Визуальный сигнал — тип не подтверждён',
+                      'Действие не определено','Әрекет анықталмады','Action undetermined'):
             item['type']=label
             with self.subTest(label=label),self.assertRaises(ValueError):validate_annotation(item,10)

@@ -6,7 +6,8 @@ UNSUPPORTED_LABELS=frozenset({'','unknown','unresolved','unspecified','unconfirm
     'unknown visual event','unconfirmed event','unconfirmed visual event','visual anomaly',
     'violation','no violation','positive','negative','normal','anomaly','true','false','0','1',
     'неизвестно','неизвестный','неподтверждено','нарушение','без нарушения','тип не установлен',
-    'тип не определен','тип не подтвержден','визуальный сигнал тип не подтвержден'})
+    'тип не определен','тип не подтвержден','визуальный сигнал тип не подтвержден',
+    'действие не определено','әрекет анықталмады','action undetermined'})
 
 
 def is_specific_type(value):

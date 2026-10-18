@@ -1,0 +1,147 @@
+# Offline observed-action research proposals
+
+This optional CPU tool proposes labels for **human research review**. It does not
+change the active binary classifier, service, original labels, or human review
+CSV. Its output is not eligible for training. Still-image text matching has not
+been validated for these cameras or actions; a suggested action is not an
+established event or a legal violation.
+
+## Public model preparation
+
+Run from the repository root, before processing any bank video:
+
+```powershell
+.venv-isolated/Scripts/python.exe -m pip install -r requirements-action-proposals.txt
+.venv-isolated/Scripts/python.exe scripts/prepare_action_encoder.py
+```
+
+This command downloads only public assets, anonymously, from
+[`google/siglip-base-patch16-224`](https://huggingface.co/google/siglip-base-patch16-224/blob/7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed/README.md).
+The pinned model card declares `apache-2.0`. The fixed commit is
+`7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed`; the 812,672,320-byte
+`model.safetensors` file has SHA256
+`2c63cb7d1f2e95ba501893cbb8faeb4ea9a3af295498d35097126228659c2af8`.
+Interrupted transfers retain partial bytes and use HTTP Range resume; each invocation
+allows two bounded five-minute transfer attempts with a 30-second socket timeout.
+Already-complete weights are reused only after their SHA256 matches the public
+pinned LFS checksum. The preparation command verifies public LFS checksums and stores SHA256 hashes
+for every downloaded asset in ignored `local/action-encoder/manifest.json`.
+The pinned model card is retained with its hash as the license evidence.
+It does not download or load pickle weights, enable remote code, inspect the
+dataset, use a hosted inference API, or log credentials. Dependencies are optional
+and separate from the application requirements; existing CPU Torch is retained.
+
+## Local proposal run
+
+```powershell
+.venv-isolated/Scripts/python.exe scripts/propose_action_labels.py --output local/dataset/action-proposals-v1
+```
+
+Use a fresh output prefix for every run; existing outputs are not overwritten.
+All model inputs remain in the local inference process. No image or video is sent
+to a connector or network service. Python socket connections, DNS and datagrams
+are denied before reading dataset metadata or sources, and model loading uses
+`local_files_only=True`, `trust_remote_code=False`, and safetensors. FFmpeg and
+FFprobe accept only local file/pipe protocols. The guard self-test must pass before
+processing starts. This is an application-level network denial, not an OS firewall
+or a sandbox for arbitrary third-party native code.
+
+The trusted manifest plus fixed split determines membership. Test and external
+sources are excluded **before accessing their paths or decoding frames**. Only
+original manifest point times present in the review CSV are considered, with
+three sampled frames around each point (`-2`, `0`, `+2` seconds). Source-frame
+indices are selected from original PTS; both absolute PTS and time relative to the
+first original frame are recorded. Sampling clamps at source boundaries. The
+three samples are research context and never inferred event boundaries.
+Images are letterboxed to 224 by 224 while preserving the complete frame and
+aspect ratio. No crop removes hands or objects.
+
+Trusted manifest, split, review CSV and model-manifest hashes are frozen before
+processing and rechecked before publishing. Every selected source must match its
+original SHA256 before decoding and again at the end. Every encoder asset is
+hashed before and after the run; the model weights must also match the pinned
+public weight checksum.
+
+## Fixed observed actions and abstention
+
+The action IDs are `count_cash`, `leave_workstation`, `handle_cash_storage`,
+`hand_over_document`, `transfer_cash`, and `unknown`. English prompts describe
+neutral visible actions. Additional competing prompts cover ordinary desk work,
+reading/writing, unidentified objects, obstructed hands, poor visibility,
+stationary people and no visible action. Each prompt group has two paraphrases;
+its score is the mean normalized image/text cosine similarity.
+
+The frozen research heuristics require mean cosine at least 0.24, a 0.025 margin
+over the next action, a 0.02 margin over the strongest neutral/occlusion control,
+at least two of three frames supporting the same action, and support from the
+center frame. Repeated PTS caused by boundary clamping also force abstention.
+Otherwise the result is `unknown` with an abstention reason.
+**Cosine similarities and their margins are uncalibrated scores, not probabilities
+or confidence.** Thresholds were declared before the run and were not tuned to
+the original binary labels or held-out test sources. All scores, prompts hash,
+thresholds and prompt version are retained locally for reproducibility.
+
+Walking away is an action proposal only. It does not establish unattended cash,
+missing protections, legal applicability, or RK231-22. No rule IDs are generated by
+this tool: its empty `candidate_rule_ids` avoids inferring conditions that image
+matching cannot establish. A human must examine any relevant conditions and use
+the separately verified rule registry before even proposing a rule reference.
+
+## Separate output files
+
+- `.jsonl`: full machine proposals, frame PTS, raw per-frame cosine scores,
+  abstention reasons, frozen input/model hashes and model/prompt versions.
+- `.csv`: compact proposal records for review.
+- `.assisted-review.csv`: all original review rows, joined by `event_id`, with
+  suggested type/action, candidate rules, proposal status, model version and reason
+  appended. Every original cell is preserved. Held-out test rows remain present,
+  have all suggestion fields blank, and carry reason `excluded_heldout`.
+- `.summary.json`: aggregate counts, unknown count, wall time and sampled peak
+  Python-process RSS. RSS excludes FFmpeg subprocess memory and is identified as
+  such. Console output is aggregate counts and runtime only.
+
+Every proposal has `origin: automatic`, `confirmed: false`,
+`training_eligible: false`, `visibility: unknown`, null interval endpoints and no
+legal conclusion. A non-unknown suggestion does not imply visibility is clear.
+The existing supervised type trainer requires independent human provenance,
+confirmation, clear visibility and reviewed intervals; these files intentionally
+cannot satisfy that contract. Do not rename or edit these machine proposals to
+make them look like human labels. Review actual source video locally and create
+human annotations through the existing review workflow.
+
+The tool is separate from runtime inference, automatic model activation, and
+training. Human validation on independent sources remains necessary before
+claiming any action-recognition accuracy. The original binary anomaly labels do
+not supply an action taxonomy, action boundaries, or action accuracy evidence.
+
+## Verification
+
+```powershell
+$env:PYTHONPATH = "$PWD/src"
+.venv-isolated/Scripts/python.exe -m unittest discover -s tests -p test_action_proposals.py
+```
+
+Tests use only synthetic score arrays, synthetic images and temporary files. They
+cover abstention, neutral wins, temporal agreement, non-training provenance,
+held-out exclusion, original-point restrictions, frozen input and model hashes,
+network denial and preservation of image edges. No bank frame is displayed by a
+tool during development or verification.
+
+
+## Measured local research run (2026-10-18)
+
+The real pinned model processed all 18 eligible original points (13 train and
+5 validation), using 54 sampled local frames. All 18 proposals abstained as
+`unknown`; no action label or rule was forced. Four test points were excluded
+before source access and retained with blank suggestions in the 22-row assisted
+review copy. Original review cells remain unchanged and unreviewed.
+
+Wall time was **71.227 seconds** and sampled peak Python-process RSS was
+**823.71 MB**, excluding FFmpeg child-process peak memory. The run passed the
+network-denial self-test, rechecked source/model/input content hashes, and used
+CPU Torch 2.6.0. The local artifacts use prefix
+`local/dataset/action-proposals-v1` and include the full provenance and aggregate
+summary. These are honest abstentions from an unvalidated image-text model;
+there is no measured action accuracy and no human confirmation. Human review is
+still required to establish real action labels, visibility and intervals.
+

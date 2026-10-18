@@ -18,7 +18,7 @@ function rememberStatic(){
   if(!document.createTreeWalker)return;
   const walker=document.createTreeWalker(document.documentElement,4);let node;
   while((node=walker.nextNode())){const text=node.data.trim();if(translations[text])staticNodes.push({node,source:text,last:node.data,prefix:node.data.match(/^\s*/)[0],suffix:node.data.match(/\s*$/)[0]});}
-  for(const node of document.querySelectorAll('[aria-label],[title],[placeholder],[alt]'))for(const name of ['aria-label','title','placeholder','alt']){const source=node.getAttribute(name);if(translations[source])staticAttributes.push({node,name,source,last:source});}
+  for(const node of document.querySelectorAll('[aria-label],[aria-roledescription],[title],[placeholder],[alt]'))for(const name of ['aria-label','aria-roledescription','title','placeholder','alt']){const source=node.getAttribute(name);if(translations[source])staticAttributes.push({node,name,source,last:source});}
 }
 export function applyStaticTranslations(){
   for(const item of staticNodes)if(item.node.data===item.last){item.last=item.prefix+tr(item.source)+item.suffix;item.node.data=item.last;}

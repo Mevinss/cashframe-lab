@@ -1,8 +1,10 @@
 import {ru,tr,language,locale,hasTranslation,initPreferences} from './i18n.js';
-import {initHero} from './hero.js';
+import {initHero,initHeroCarousel} from './hero.js';
 
 const $=id=>document.getElementById(id);
 const state={file:null,key:'',authorized:false,jobId:null,result:null,review:null,selected:null,blob:null,timer:null,generation:0,drafts:{},overview:null,compliance:[],currentView:'overview',progress:null,startedAt:null};
+let heroCarousel=null;
+let actionTypes=[];
 const time=value=>`${Math.floor(Math.max(0,value||0)/60)}:${String(Math.floor(Math.max(0,value||0)%60)).padStart(2,'0')}`;
 const preciseTime=value=>{const ticks=Math.round(Math.max(0,Number(value)||0)*100);return `${time(ticks/100)}.${String(ticks%100).padStart(2,'0')}`;};
 const fragmentWord=count=>language()==='kk'?tr('фрагментов'):language()==='en'?(count===1?tr('фрагмент'):tr('фрагментов')):count%10===1&&count%100!==11?tr('фрагмент'):count%10>=2&&count%10<=4&&(count%100<12||count%100>14)?tr('фрагмента'):tr('фрагментов');
@@ -13,6 +15,7 @@ function startElapsed(){clearInterval(state.timer);if(!state.startedAt)return;co
 function message(text){$('notice').textContent=text;$('notice').hidden=!text;}
 function screen(name){
   state.currentView=name;
+  heroCarousel?.block('view',name!=='overview');
   for(const view of ['overview','history','rules','guide','system','upload','processing','result'])$(`${view}-view`).hidden=view!==name;
   $('workflow').hidden=!['upload','processing','result'].includes(name);
   for(const view of ['upload','processing','result']){const step=$(`step-${view}`);if(view===name)step.setAttribute('aria-current','step');else step.removeAttribute('aria-current');}
@@ -129,6 +132,7 @@ async function renderResult(){
   $('player').removeAttribute('src');
   if(state.blob){URL.revokeObjectURL(state.blob);state.blob=null;}
   $('video-error').hidden=true;screen('result');globalThis.scrollTo?.({top:0,left:0,behavior:'instant'});
+  void loadActionTypes();
   if(result.violations.length)selectEvent(0);else{
     $('event-detail').hidden=true;
     $('annotation-form').reset();$('annotation-start').value=0;$('annotation-end').value=(detail.duration_sec||0).toFixed(2);
@@ -239,6 +243,15 @@ $('annotation-form').addEventListener('submit',async e=>{
   catch(error){$('annotation-feedback').textContent=error.message;}
 });
 
+function renderActionTypes(){
+  const list=$('annotation-action-types');list.replaceChildren();
+  for(const item of actionTypes){if(item.id==='unknown')continue;const label=item.labels?.[language()]||item.labels?.ru||item.labels?.en;if(typeof label!=='string'||!label.trim())continue;const option=element('option');option.value=label;list.append(option);}
+}
+async function loadActionTypes(){
+  try{const catalog=await(await request('/api/v1/action-types',{retries:0,timeoutMs:4000})).json();actionTypes=Array.isArray(catalog.classes)?catalog.classes:[];}catch{actionTypes=[];}
+  renderActionTypes();
+}
+
 async function renderHumanObservations(){
   const list=$('human-observations');list.replaceChildren();
   try{
@@ -299,6 +312,8 @@ function localizedEventDescription(event,meta){
   return event.description;
 }
 function refreshLanguage(){
+  heroCarousel?.refresh();
+  renderActionTypes();
   const savedScroll={top:globalThis.scrollY||0,left:globalThis.scrollX||0};
   if(state.overview)renderOverview(state.overview);else renderLockedMetrics();
   $('access-status').textContent=state.authorized?tr('Подключено'):tr('Не подключено');
@@ -312,5 +327,6 @@ function refreshLanguage(){
   globalThis.scrollTo?.({...savedScroll,behavior:'instant'});
 }
 initPreferences(refreshLanguage);
-initHero();
+heroCarousel=initHeroCarousel();
+initHero({onDragChange:value=>heroCarousel?.block('drag',value)});
 renderLockedMetrics();

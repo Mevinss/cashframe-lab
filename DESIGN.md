@@ -22,9 +22,13 @@ The user's screenshots pin burgundy/magenta and cyan dimensional materials, supp
 
 A large saturated banner pairs a short heading and stationary upload action with an original CSS 3D composition of a video viewer, reels and an evidence sheet. The object can be dragged inside bounds, nudged with arrow keys and reset with Home or the reset button. Pointer motion is restrained, vertical touch scrolling remains available and reduced motion is honored. Geometry has no pretend playback controls or model measurements.
 
+Three short copy panels explain upload, local model signals and human review with PDF export. Only the copy slides; the approved burgundy/cyan sculpture and upload action stay stationary. Pagination, previous/next and a pause/resume button remain available. Rotation uses an eight-second reading interval and pauses independently during hover, focus, drag, a hidden page, an offscreen banner or any view other than overview. Reduced motion starts paused and removes slide movement; explicit playback remains available. Carousel arrows act only within its control group, while the sculpture retains its own arrow/Home controls. Drag instructions remain available to assistive technology without a visible caption.
+
 ## Review workspace
 
 Exact localized API verdict, source file/duration, export actions, source video and timeline, event list, original JPEG evidence and event-specific normative panel. Unknown timing suppresses zero-second incident markers and labels images as context. Human observation, model proposal and legal applicability have separate states. New results open at the top; language changes preserve position and playback.
+
+The result heading has its own row. A dedicated toolbar beneath it gives PDF export the primary weight, evidence passport secondary weight, and new video a tertiary text action. The toolbar stays inline on desktop and wraps naturally on narrow screens. Programmatic heading focus avoids a full-width outline; keyboard focus retains an underline. Human action entry offers optional localized catalog suggestions and always permits a reviewer's own wording, including when the catalog is unavailable. Suggestions describe observation categories, not trained model predictions.
 
 ## Themes and content
 

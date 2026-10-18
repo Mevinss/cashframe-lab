@@ -228,6 +228,9 @@ def create_app(settings=None,analyzer=None):
     @app.get('/api/v1/rules',dependencies=[Depends(authorize)])
     def rules():return read_json(ROOT/'config/rules.json')
 
+    @app.get('/api/v1/action-types',dependencies=[Depends(authorize)])
+    def action_types():return read_json(ROOT/'config/action-types.json')
+
     def download_report(job_id,kind,language='ru'):
         with report_lock:
             job=get_job(job_id)

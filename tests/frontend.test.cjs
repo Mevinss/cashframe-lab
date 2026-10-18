@@ -3,8 +3,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-function app({reducedMotion=false}={}){
-  const nodes=new Map(),storage=new Map();
+function app({reducedMotion=false,pageHidden=false}={}){
+  const nodes=new Map(),storage=new Map(),carouselTimers=new Map();let timerId=0,onIntersection;
   function node(tag='div'){
     const classes=new Set();
     const n={tagName:tag.toUpperCase(),hidden:true,style:{setProperty(name,value){this[name]=value;}},dataset:{},children:[],value:'',listeners:{},attributes:{},textContent:'',currentTime:0,
@@ -12,18 +12,18 @@ function app({reducedMotion=false}={}){
       addEventListener(type,callback){this.listeners[type]=callback;},setAttribute(name,value){this.attributes[name]=String(value);},getAttribute(name){return this.attributes[name]??null;},removeAttribute(name){delete this.attributes[name];if(name==='value')this.value='';},
       replaceChildren(...items){this.children=[];this.append(...items);},append(...items){for(const item of items){item.parent=this;this.children.push(item);}},prepend(item){item.parent=this;this.children.unshift(item);},
       querySelectorAll(selector){return this.children.filter(item=>selector.split(',').some(part=>item.className?.split(' ').includes(part.replace('.',''))));},querySelector(){return null;},
-      focus(){},reset(){},pause(){},remove(){if(this.parent)this.parent.children=this.parent.children.filter(item=>item!==this);},click(){},
+      contains(item){return item===this||this.children.some(child=>child.contains(item));},focus(){},reset(){},pause(){},remove(){if(this.parent)this.parent.children=this.parent.children.filter(item=>item!==this);},click(){},
       getBoundingClientRect(){return {left:0,top:0,width:360,height:280};},setPointerCapture(){},showModal(){},close(){}};
     Object.defineProperty(n,'firstElementChild',{get(){return this.children[0];}});return n;
   }
-  const document={getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node,body:node(),documentElement:node(),querySelectorAll(){return [];}};
-  const context=vm.createContext({document,Response,TextDecoder,AbortController,URL,FormData,console,setTimeout,clearTimeout,setInterval,clearInterval,
-    localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},matchMedia:()=>({matches:reducedMotion,addEventListener(){}}),fetch:async()=>new Response('{}')});
+  const document={hidden:pageHidden,listeners:{},addEventListener(type,callback){this.listeners[type]=callback;},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node,body:node(),documentElement:node(),querySelectorAll(){return [];}};
+  const context=vm.createContext({document,Response,TextDecoder,AbortController,URL,FormData,console,setTimeout:(callback,delay)=>{if(delay===8000){const id=`carousel-${++timerId}`;carouselTimers.set(id,callback);return id;}return setTimeout(callback,delay);},clearTimeout:id=>{carouselTimers.delete(id);clearTimeout(id);},setInterval,clearInterval,
+    IntersectionObserver:class{constructor(callback){onIntersection=callback;}observe(){}},localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},matchMedia:()=>({matches:reducedMotion,addEventListener(){}}),fetch:async()=>new Response('{}')});
   const source=path=>fs.readFileSync(path,'utf8').replace(/^import[^\n]+\n/gm,'').replace(/\bexport /g,'');
   vm.runInContext(source('web/translations.js'),context);
   vm.runInContext(fs.readFileSync('web/i18n.ru.js','utf8').replace('export const ru','const sourceCopy'),context);
   vm.runInContext(source('web/i18n.js'),context);vm.runInContext(source('web/hero.js'),context);vm.runInContext(source('web/app.js'),context);
-  return {context,nodes,storage,run:code=>vm.runInContext(code,context)};
+  return {context,nodes,storage,carouselTimers,setBannerVisible(value){onIntersection([{isIntersecting:value}]);},advanceCarousel(){const entry=carouselTimers.entries().next().value;assert.ok(entry,'carousel should be scheduled');carouselTimers.delete(entry[0]);entry[1]();},run:code=>vm.runInContext(code,context)};
 }
 function text(node){return [node.textContent,...node.children.map(text)].join(' ');}
 const event=`{type:'Визуальный сигнал',timecode_sec:0,description:'unlocalized fixture',evidence_frames:[{timestamp_sec:0,image_base64:'synthetic-fixture'}]}`;
@@ -81,7 +81,7 @@ test('all three languages cover verdicts, context, errors, stage measurements an
 test('every static Russian interface string and accessibility label has English and Kazakh copy',()=>{
   const a=app(),html=fs.readFileSync('web/index.html','utf8'),strings=[];
   for(const match of html.matchAll(/>([^<>]+)</g))if(/[А-Яа-яЁё]/.test(match[1]))strings.push(match[1].trim());
-  for(const match of html.matchAll(/(?:aria-label|title|placeholder|alt)="([^"]+)"/g))if(/[А-Яа-яЁё]/.test(match[1]))strings.push(match[1]);
+  for(const match of html.matchAll(/(?:aria-label|aria-roledescription|title|placeholder|alt)="([^"]+)"/g))if(/[А-Яа-яЁё]/.test(match[1]))strings.push(match[1]);
   for(const source of strings){assert.ok(a.run(`Boolean(translations[${JSON.stringify(source)}]?.en)`),source);assert.ok(a.run(`Boolean(translations[${JSON.stringify(source)}]?.kk)`),source);}
 });
 test('settings persist only language and theme, never an access key',async()=>{
@@ -94,6 +94,71 @@ test('decorative composition is bounded and keyboard reset works',()=>{
 });
 test('vertical touch movement stays available for page scrolling',()=>{
   const a=app(),object=a.nodes.get('hero-object');object.listeners.pointerdown({button:0,pointerId:2,pointerType:'touch',clientX:100,clientY:100});object.listeners.pointermove({pointerId:2,pointerType:'touch',clientX:101,clientY:120});assert.equal(object.style['--drag-y'],'0px');
+});
+
+test('carousel cycles, wraps and exposes only the selected explanatory panel',()=>{
+  const a=app();a.advanceCarousel();
+  assert.equal(a.nodes.get('hero-slide-1').getAttribute('aria-hidden'),'false');
+  assert.equal(a.nodes.get('hero-slide-0').inert,true);
+  assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
+  a.advanceCarousel();a.advanceCarousel();assert.equal(a.nodes.get('hero-dot-0').getAttribute('aria-current'),'true');
+  a.nodes.get('hero-prev').listeners.click();assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
+  a.nodes.get('hero-dot-1').listeners.click();assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
+});
+
+test('carousel pauses independently for interaction, navigation, hidden page and explicit pause',()=>{
+  const a=app(),banner=a.nodes.get('hero-carousel'),pause=a.nodes.get('hero-pause');
+  banner.listeners.pointerenter();assert.equal(a.carouselTimers.size,0);
+  banner.listeners.focusin();banner.listeners.pointerleave();assert.equal(a.carouselTimers.size,0);
+  banner.listeners.focusout({relatedTarget:null});assert.equal(a.carouselTimers.size,1);
+  pause.listeners.click();assert.equal(a.carouselTimers.size,0);assert.equal(pause.getAttribute('aria-pressed'),'true');
+  a.run("screen('processing');screen('overview')");assert.equal(a.carouselTimers.size,0);
+  pause.listeners.click();assert.equal(a.carouselTimers.size,1);
+  a.run("screen('result')");assert.equal(a.carouselTimers.size,0);a.run("screen('overview')");assert.equal(a.carouselTimers.size,1);
+  a.context.document.hidden=true;a.context.document.listeners.visibilitychange();assert.equal(a.carouselTimers.size,0);
+  a.context.document.hidden=false;a.context.document.listeners.visibilitychange();assert.equal(a.carouselTimers.size,1);
+});
+
+test('carousel keyboard arrows change panels while sculpture arrows only move the object',()=>{
+  const a=app(),controls=a.nodes.get('hero-carousel-controls'),object=a.nodes.get('hero-object');
+  controls.listeners.keydown({key:'ArrowLeft',preventDefault(){}});assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
+  object.listeners.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(object.style['--drag-x'],'8px');assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
+  controls.listeners.keydown({key:'Home',preventDefault(){}});assert.equal(a.nodes.get('hero-dot-0').getAttribute('aria-current'),'true');
+});
+
+test('carousel does not start in a hidden page or continue outside the viewport',()=>{
+  const a=app({pageHidden:true});assert.equal(a.carouselTimers.size,0);
+  a.context.document.hidden=false;a.context.document.listeners.visibilitychange();assert.equal(a.carouselTimers.size,1);
+  a.setBannerVisible(false);assert.equal(a.carouselTimers.size,0);a.setBannerVisible(true);assert.equal(a.carouselTimers.size,1);
+});
+
+test('reduced motion starts carousel paused and explicit playback remains available',()=>{
+  const a=app({reducedMotion:true});assert.equal(a.carouselTimers.size,0);
+  const pause=a.nodes.get('hero-pause');assert.equal(pause.getAttribute('aria-pressed'),'true');
+  pause.listeners.click();a.advanceCarousel();assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
+  for(const [lang,label] of [['en','Pause slides'],['kk','Слайдтарды кідірту'],['ru','Приостановить слайды']]){a.run(`setLanguage('${lang}');refreshLanguage()`);assert.equal(pause.getAttribute('aria-label'),label);}
+});
+
+test('drag suspends carousel even after the pointer leaves the banner',()=>{
+  const a=app(),object=a.nodes.get('hero-object');object.listeners.pointerdown({button:0,pointerId:2,pointerType:'mouse',clientX:100,clientY:100});
+  a.nodes.get('hero-carousel').listeners.pointerleave();assert.equal(a.carouselTimers.size,0);
+  object.listeners.pointerup();assert.equal(a.carouselTimers.size,1);
+});
+
+test('optional action categories use the current locale without replacing a human action',async()=>{
+  const a=app();a.context.document.getElementById('annotation-type').value='Reviewer supplied action';
+  a.run("request=async()=>new Response(JSON.stringify({status:'taxonomy_not_trained',classes:[{id:'counting',labels:{ru:'Пересчёт',kk:'Қайта санау',en:'Counting'},candidate_rule_ids:['cash'],requirements:[],limits:[]},{id:'unknown',labels:{ru:'Действие не определено',kk:'Әрекет анықталмады',en:'Action undetermined'}}]}))");
+  await a.run('loadActionTypes()');assert.equal(a.nodes.get('annotation-action-types').children[0].value,'Пересчёт');
+  a.run("setLanguage('kk');refreshLanguage()");assert.equal(a.nodes.get('annotation-action-types').children[0].value,'Қайта санау');
+  a.run("setLanguage('en');refreshLanguage()");assert.equal(a.nodes.get('annotation-action-types').children[0].value,'Counting');
+  assert.equal(a.nodes.get('annotation-type').value,'Reviewer supplied action');
+  assert.equal(a.nodes.get('annotation-action-types').children.length,1);
+});
+
+test('missing action catalog keeps arbitrary human input available',async()=>{
+  const a=app();a.context.document.getElementById('annotation-type').value='Human observation';
+  a.run("request=async()=>{throw new Error('not available')}");await a.run('loadActionTypes()');
+  assert.equal(a.nodes.get('annotation-action-types').children.length,0);assert.equal(a.nodes.get('annotation-type').value,'Human observation');
 });
 test('PDF and passport downloads request the selected language',async()=>{
   const a=app();a.run("state.jobId='fixture';setLanguage('kk');globalThis.requested=[];request=async path=>{requested.push(path);return new Response('fixture');}");await a.run("downloadArtifact('pdf')");await a.run("downloadArtifact('passport')");assert.equal(a.run('requested[0]'),'/api/v1/jobs/fixture/report.pdf?language=kk');assert.equal(a.run('requested[1]'),'/api/v1/jobs/fixture/passport?language=kk');
