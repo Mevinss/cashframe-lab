@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1180" viewBox="0 0 1440 1180" role="img" aria-labelledby="title description">
+  <title id="title">Архитектура сервиса видеоаудита</title>
+  <desc id="description">Браузер и клиент API обращаются через HTTPS-прокси к FastAPI. Один worker запускает локальный CPU-процесс: FFmpeg, замороженный DINOv2, обученные бинарные головы v2, события и доказательства. Проверенные нормативные источники и подтверждение проверяющего используются отдельно. Принятого классификатора типов пока нет.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 8 5 L 1 9" fill="none" stroke="#768190" stroke-width="1.6"/></marker>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; fill: #192636; }
+      .title { font-size: 38px; font-weight: 700; letter-spacing: -.7px; }
+      .subtitle { font-size: 18px; fill: #5e6876; }
+      .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 1.6px; fill: #7b1545; }
+      .heading { font-size: 22px; font-weight: 650; letter-spacing: -.3px; }
+      .body { font-size: 17px; fill: #4e5b6a; }
+      .small { font-size: 15px; fill: #596574; }
+      .white { fill: #fff; }
+      .soft-white { fill: #eedde5; }
+      .card { fill: #fff; stroke: #dedfe5; stroke-width: 1.3; }
+      .connector { fill: none; stroke: #768190; stroke-width: 1.6; marker-end: url(#arrow); }
+      .bus { fill: none; stroke: #99a2ae; stroke-width: 1.5; }
+    </style>
+  </defs>
+  <rect width="1440" height="1180" fill="#f7f7f9"/>
+  <rect x="60" y="55" width="6" height="72" rx="3" fill="#851349"/>
+  <text x="86" y="83" class="eyebrow">ВИДЕОАУДИТ / АРХИТЕКТУРА</text>
+  <text x="83" y="128" class="title">От загрузки к проверяемому результату</text>
+  <text x="84" y="162" class="subtitle">Единый backend. Анализ на CPU. Приватные материалы на сервере установки.</text>
+  <rect x="60" y="202" width="330" height="136" rx="16" class="card"/>
+  <text x="83" y="237" class="eyebrow">01 / ДОСТУП</text>
+  <text x="83" y="269" class="heading">Браузер или клиент API</text>
+  <text x="83" y="297" class="body">Веб-интерфейс · загрузка видео</text>
+  <text x="83" y="320" class="small">API: заголовок X-API-Key</text>
+  <path d="M390 270 H449" class="connector" marker-start="url(#arrow)"/>
+  <rect x="460" y="202" width="290" height="136" rx="16" class="card"/>
+  <text x="483" y="237" class="eyebrow">02 / МАРШРУТ</text>
+  <text x="483" y="269" class="heading">HTTPS-прокси</text>
+  <text x="483" y="297" class="body">Внешний URL → backend</text>
+  <text x="483" y="320" class="small">Настраивается при размещении</text>
+  <path d="M750 270 H809" class="connector" marker-start="url(#arrow)"/>
+  <rect x="820" y="202" width="560" height="136" rx="16" fill="#651037"/>
+  <text x="845" y="237" class="eyebrow soft-white">03 / СЕРВИС</text>
+  <text x="845" y="269" class="heading white">FastAPI · интерфейс и защищённый API</text>
+  <text x="845" y="297" class="body soft-white">Общий ключ установки · HttpOnly-сессия браузера</text>
+  <text x="845" y="320" class="small soft-white">Загрузка → статус → результат → отчёт</text>
+  <rect x="50" y="388" width="1330" height="679" rx="20" fill="#eff3f5" stroke="#d7dfe5" stroke-width="1.3"/>
+  <text x="270" y="423" class="eyebrow">СЕРВЕР УСТАНОВКИ</text>
+  <text x="850" y="423" class="eyebrow">ЛОКАЛЬНЫЙ АНАЛИЗ / CPU</text>
+  <path d="M1100 338 V365 H610 V456" class="connector"/>
+  <path d="M1100 365 H225 V456" class="connector"/>
+  <path d="M1100 365 H1110 V456" class="connector"/>
+  <rect x="80" y="463" width="300" height="111" rx="13" class="card"/>
+  <text x="102" y="496" class="heading">SQLite</text>
+  <text x="102" y="524" class="body">Задания, статусы, результаты</text>
+  <text x="102" y="549" class="small">История обработки</text>
+  <rect x="420" y="463" width="390" height="111" rx="13" class="card"/>
+  <text x="442" y="496" class="heading">Один worker</text>
+  <text x="442" y="524" class="body">Отдельный CPU-процесс анализа</text>
+  <text x="442" y="549" class="small">Лимиты времени и памяти · занято → 429</text>
+  <rect x="850" y="463" width="500" height="111" rx="13" class="card"/>
+  <text x="872" y="496" class="heading">Приватные файлы</text>
+  <text x="872" y="524" class="body">Видео · веса · кадры · аннотации · секреты</text>
+  <text x="872" y="549" class="small">Отдельное хранение; материалы не входят в Git</text>
+  <path d="M615 574 V599 H220 V625" class="connector"/>
+  <rect x="80" y="632" width="280" height="151" rx="13" class="card"/>
+  <rect x="80" y="632" width="280" height="5" rx="2.5" fill="#48bfd1"/>
+  <text x="102" y="673" class="heading">FFmpeg</text>
+  <text x="102" y="704" class="body">Проверка и декодирование</text>
+  <text x="102" y="731" class="body">Кадры с исходными PTS</text>
+  <text x="102" y="758" class="small">Временные метки из видео</text>
+  <path d="M360 707 H393" class="connector"/>
+  <rect x="400" y="632" width="280" height="151" rx="13" class="card"/>
+  <rect x="400" y="632" width="280" height="5" rx="2.5" fill="#48bfd1"/>
+  <text x="422" y="673" class="heading">DINOv2 ViT-S/14</text>
+  <text x="422" y="704" class="body">Замороженный энкодер</text>
+  <text x="422" y="731" class="body">4 кадра/с · вход 168 px</text>
+  <text x="422" y="758" class="small">384 признака на кадр</text>
+  <path d="M680 707 H713" class="connector"/>
+  <rect x="720" y="632" width="280" height="151" rx="13" class="card"/>
+  <rect x="720" y="632" width="280" height="5" rx="2.5" fill="#851349"/>
+  <text x="742" y="673" class="heading">Обученные головы v2</text>
+  <text x="742" y="704" class="body">Оконная логистическая</text>
+  <text x="742" y="731" class="body">Видео: kernel ridge</text>
+  <text x="742" y="758" class="small">Бинарный сигнал и интервалы</text>
+  <path d="M1000 707 H1033" class="connector"/>
+  <rect x="1040" y="632" width="280" height="151" rx="13" class="card"/>
+  <rect x="1040" y="632" width="280" height="5" rx="2.5" fill="#851349"/>
+  <text x="1062" y="673" class="heading">Предложения событий</text>
+  <text x="1062" y="704" class="body">Вердикт · таймкод · кадры</text>
+  <text x="1062" y="731" class="body">Исходные JPEG</text>
+  <text x="1062" y="758" class="small">Неопределённость обозначается</text>
+  <path d="M1180 783 V840" class="bus"/>
+  <path d="M300 840 H1180" class="bus"/>
+  <path d="M300 840 V866" class="connector"/>
+  <path d="M770 840 V866" class="connector"/>
+  <path d="M1150 840 V866" class="connector"/>
+  <rect x="80" y="873" width="440" height="158" rx="13" class="card"/>
+  <text x="102" y="908" class="heading">Два результата проверки</text>
+  <text x="102" y="941" class="body">«Нарушение не обнаружено»</text>
+  <text x="102" y="970" class="body">«Обнаружены признаки</text>
+  <text x="102" y="994" class="body">возможных нарушений»</text>
+  <text x="102" y="1017" class="small">Проверяемые доказательства в интерфейсе и API</text>
+  <rect x="560" y="873" width="390" height="158" rx="13" class="card"/>
+  <text x="582" y="908" class="heading">Предварительный PDF</text>
+  <text x="582" y="941" class="body">Кадры, события, ограничения</text>
+  <text x="582" y="970" class="body">Evidence Passport · SHA-256</text>
+  <text x="582" y="1002" class="small">Подтверждение уполномоченным сотрудником</text>
+  <rect x="990" y="873" width="330" height="158" rx="13" class="card"/>
+  <text x="1012" y="908" class="heading">Нормативные источники</text>
+  <text x="1012" y="941" class="body">Проверенный локальный реестр</text>
+  <text x="1012" y="970" class="body">Правило — кандидат</text>
+  <text x="1012" y="1002" class="small">Применимость проверяет сотрудник</text>
+  <rect x="60" y="1090" width="1320" height="62" rx="12" fill="#fff" stroke="#ac7c95" stroke-width="1.2" stroke-dasharray="6 5"/>
+  <text x="81" y="1116" class="small" style="font-weight:650;fill:#6c2346">Классификация типов — опциональный модуль; принятой модели типов пока нет.</text>
+  <text x="81" y="1139" class="small">Каталог категорий не определяет действие автоматически. Локальная и HTTPS-версия совпадают после обновления и перезапуска backend.</text>
+</svg>
