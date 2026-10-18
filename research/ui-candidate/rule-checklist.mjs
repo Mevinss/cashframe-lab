@@ -1,0 +1,26 @@
+// Public factual prompts only. Nothing is sent to annotation endpoints automatically.
+export const ANSWERS=['satisfied','not_satisfied','unknown','not_visible'];
+export const RULE_IDS=['RK231-20','RK231-22','RK231-19-6'];
+export function assessChecklist(item,catalog){
+  const fields=['rule_id','origin','human_confirmed','visibility','answers'];
+  if(!item||Object.keys(item).length!==fields.length||fields.some(key=>!Object.hasOwn(item,key)))throw new Error('Некорректная структура чек-листа');
+  const rule=catalog.rules.find(rule=>rule.id===item.rule_id);
+  if(!rule||catalog.rules.length!==3||new Set(catalog.rules.map(r=>r.id)).size!==3||catalog.rules.some(r=>!RULE_IDS.includes(r.id)))throw new Error('Неподдерживаемый реестр');
+  if(!['human','automatic'].includes(item.origin)||typeof item.human_confirmed!=='boolean'||!['clear','partial','unknown','unusable'].includes(item.visibility))throw new Error('Некорректный чек-лист');
+  const questions=[...rule.context,...rule.observations],ids=questions.map(q=>q.id);
+  if(!item.answers||typeof item.answers!=='object'||Array.isArray(item.answers)||Object.keys(item.answers).some(id=>!ids.includes(id))||Object.values(item.answers).some(answer=>!ANSWERS.includes(answer)))throw new Error('Некорректный ответ');
+  const values=Object.fromEntries(ids.map(id=>[id,item.answers[id]??'unknown']));
+  const status=item.origin!=='human'||!item.human_confirmed?'needs_human_confirmation':item.visibility!=='clear'?'insufficient_visibility':rule.context.some(q=>values[q.id]==='not_satisfied')?'context_not_established':questions.some(q=>['unknown','not_visible'].includes(values[q.id]))?'insufficient_evidence':rule.observations.some(q=>values[q.id]==='not_satisfied')?'factual_discrepancy_requires_review':'factual_checklist_supported';
+  return {schema_version:1,rule_id:rule.id,status,supported_conditions:Object.values(values).filter(v=>v==='satisfied').length,total_conditions:ids.length,unknown_or_invisible:Object.values(values).filter(v=>['unknown','not_visible'].includes(v)).length,legal_conclusion:null,automatic_rule_confirmation:false,notice:catalog.notice,limits:rule.limits};
+}
+export function installChecklist(){
+  const root=document.getElementById('rule-checklist'),select=document.getElementById('check-rule'),questions=document.getElementById('check-questions'),feedback=document.getElementById('check-feedback');
+  let catalog=null;
+  const messages={needs_human_confirmation:'Требуется подтверждение наблюдений человеком.',insufficient_visibility:'Недостаточная видимость: условия не считаются установленными.',context_not_established:'Контекст применимости не установлен; юридический вывод отсутствует.',insufficient_evidence:'Есть неизвестные или невидимые условия. Применимость не подтверждена.',factual_discrepancy_requires_review:'Отмечено фактическое расхождение. Требуется дополнительная проверка; это не вывод о нарушении.',factual_checklist_supported:'Фактический чек-лист заполнен. Это не юридическое заключение и не серверное подтверждение нормы.'};
+  function reset(){questions.replaceChildren();feedback.textContent='Чек-лист не заполнен.';document.getElementById('check-human').checked=false;document.getElementById('check-visibility').value='unknown';if(!catalog)return;const rule=catalog.rules.find(r=>r.id===select.value);for(const q of [...rule.context,...rule.observations]){const label=document.createElement('label');label.textContent=q.question;const field=document.createElement('select');field.dataset.question=q.id;for(const[value,text]of[['unknown','Неизвестно'],['not_visible','Не видно'],['satisfied','Да, подтверждено'],['not_satisfied','Нет, подтверждено']]){const option=document.createElement('option');option.value=value;option.textContent=text;field.append(option);}label.append(field);questions.append(label);}document.getElementById('check-limits').textContent=rule.limits;}
+  document.getElementById('check-open').addEventListener('click',async()=>{root.hidden=!root.hidden;if(root.hidden||catalog)return;try{const response=await fetch('./rule-catalog.json',{credentials:'same-origin',cache:'no-store',redirect:'error'});if(!response.ok)throw new Error();catalog=await response.json();if(catalog.rules.length!==3||catalog.rules.some(rule=>!RULE_IDS.includes(rule.id)))throw new Error();for(const rule of catalog.rules){const option=document.createElement('option');option.value=rule.id;option.textContent=rule.title;select.append(option);}reset();}catch{catalog=null;feedback.textContent='Публичный каталог не загружен. Подтверждения не сделаны.';}});
+  select.addEventListener('change',reset);
+  document.getElementById('check-assess').addEventListener('click',()=>{if(!catalog)return;const answers=Object.fromEntries([...questions.querySelectorAll('select')].map(field=>[field.dataset.question,field.value]));const item={rule_id:select.value,origin:'human',human_confirmed:document.getElementById('check-human').checked,visibility:document.getElementById('check-visibility').value,answers};try{feedback.textContent=messages[assessChecklist(item,catalog).status];}catch{feedback.textContent='Проверьте поля чек-листа.';}});
+  // Mode switches erase all answers and never change backend annotation fields.
+  document.getElementById('app-mode').addEventListener('change',()=>{root.hidden=true;reset();});
+}
