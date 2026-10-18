@@ -18,6 +18,7 @@ from types import MappingProxyType
 from urllib.parse import urlsplit, urlunsplit
 from .event_labels import is_specific_type
 from .rules import is_verified_rule
+from .compliance import event_compliance
 from xml.sax.saxutils import escape
 
 from PIL import Image as PILImage
@@ -97,6 +98,11 @@ url|Ссылка|Сілтеме|Source link
 applicability|Условия применимости, подтверждены проверяющим|Тексеруші растаған қолдану шарттары|Applicability conditions confirmed by reviewer
 rule_limits|Ограничения нормы|Норманың шектеулері|Rule limitations
 rule_status|Сохранённый статус основания|Сақталған негіз мәртебесі|Stored basis status
+candidate_reference|Источник для проверки - применимость не подтверждена|Тексеруге арналған дереккөз - қолданылуы расталмаған|Reference for review - applicability not confirmed
+candidate_conditions|Условия, которые нужно проверить|Тексерілуі қажет шарттар|Conditions requiring review
+candidate_applicability|Контекст применения нормы (не подтверждён)|Норманы қолдану мәнмәтіні (расталмаған)|Rule applicability context (not confirmed)
+candidate_limits|Ограничения категории|Санаттың шектеулері|Category limitations
+candidate_category|Категория для проверки|Тексеруге арналған санат|Category for review
 versions|Версии и параметры анализа|Талдау нұсқалары мен параметрлері|Analysis versions and parameters
 model|Модель|Модель|Model
 configuration|Конфигурация|Конфигурация|Configuration
@@ -176,7 +182,7 @@ def _text(value):
     if value is None:
         return UNSET
     text = str(value)
-    text = re.sub(r'(?i)(?:[a-z]:[\\/]|file://|\\\\)[^\s<>"\']+', '[путь скрыт]', text)
+    text = re.sub(r'(?i)(?:(?<![a-z0-9])[a-z]:[\\/]|file://|\\\\)[^\s<>"\']+', '[путь скрыт]', text)
     text = re.sub(r'(?<![\w:/])/(?:home|tmp|var|Users|private|srv|opt)/[^\s<>"\']+', '[путь скрыт]', text)
     text = re.sub(r'(?i)(?:x-api-key|api[_-]?key|authorization|password|token)\s*[:=]\s*\S+', '[секрет скрыт]', text)
     return ''.join(c for c in text if c in '\n\t' or ord(c) >= 32)
@@ -251,7 +257,7 @@ def _rule(annotation, rules):
     return None
 
 
-def _manifest(job, version_snapshot, rules, annotations, language='ru'):
+def _manifest(job, version_snapshot, rules, annotations, language='ru', *, action_catalog=None, violation_catalog=None):
     t = _translator(language)
     def tx(value):
         return t('unset') if value is None else _text(value)
@@ -273,16 +279,37 @@ def _manifest(job, version_snapshot, rules, annotations, language='ru'):
                 'versions': _versions(version_snapshot if version_snapshot is not None else review.get('version_snapshot')),
                 'verdict': tx(job['result'].get('verdict')), 'events': [], 'human_annotations': [],
                 'limitations': [], 'source_limitations': [tx(item) for item in review.get('limitations', [])],
-                'integrity_notice': t('integrity_notice')}
+                'integrity_notice': t('integrity_notice'),
+                'catalog_sha256': {'action_catalog': sha256(_canonical(action_catalog)).hexdigest() if action_catalog is not None else None,
+                                   'violation_catalog': sha256(_canonical(violation_catalog)).hexdigest() if violation_catalog is not None else None}}
     images = []
     stored_events = review.get('events') or []
+    compliance = {row['event_id']: row for row in event_compliance(job, rules, annotations,
+                    action_catalog=action_catalog, violation_catalog=violation_catalog)}
     for index, violation in enumerate(job['result'].get('violations', [])):
         stored = stored_events[index] if index < len(stored_events) else {}
         event = {'event_index': index, 'type': tx(violation.get('type')), 'type_confirmed': False,
                  'localization_status':tx(stored.get('localization_status','model_proposal')),
                  'timecode_sec': _number(violation.get('timecode_sec')), 'start_sec': _number(stored.get('start_sec')),
                  'end_sec': _number(stored.get('end_sec')), 'model_description': tx(violation.get('description')),
-                 'evidence_frames': []}
+                 'evidence_frames': [], 'candidate_rules': []}
+        # References originate only in the shared exact-catalog matcher. They are
+        # never copied into confirmed human rules or used to infer visible facts.
+        context = compliance.get(stored.get('id', f'event-{index+1}'), {})
+        for reference in context.get('candidate_rules', []):
+            rule = reference['rule']
+            url = urlsplit(rule['url'])
+            safe_url = urlunsplit((url.scheme, url.hostname or '', url.path, '', ''))
+            candidate = {key: tx(reference.get(key)) for key in
+                         ('status', 'applicability_status', 'type_id', 'category_kind', 'origin')}
+            candidate['rule'] = {key: tx(rule.get(key)) for key in
+                                 ('id', 'title', 'document', 'section', 'applicability', 'limits', 'verified_on')}
+            candidate['rule']['url'] = safe_url
+            candidate['requirements'] = {lang: [tx(value) for value in values]
+                                         for lang, values in reference['requirements'].items()}
+            candidate['limitations'] = {lang: tx(value) for lang, value in reference['limitations'].items()}
+            candidate['type_labels'] = {lang: tx(value) for lang, value in reference['type_labels'].items()}
+            event['candidate_rules'].append(candidate)
         status = event['localization_status']
         event['localization_status_label'] = t(status) if status in _CATALOG else t('unset')
         event['timecode_role'] = 'context' if status == 'unresolved' else 'model_proposal'
@@ -402,6 +429,22 @@ def _render_pdf(path, manifest, images, passport_hash):
                 story.append(p(t('frame_missing').format(name=t(role)), small))
         for frame in frames:
             story.append(p(f"JPEG {seconds(frame['timestamp_sec'])} SHA-256: {frame['sha256']}", small))
+        for candidate in event.get('candidate_rules', []):
+            story.append(p(t('candidate_reference'), heading))
+            labels = candidate.get('type_labels', {})
+            label = labels.get(manifest['language']) or labels.get('ru') or labels.get('en')
+            if label:
+                story.append(field('candidate_category', label))
+            rule = candidate['rule']
+            story += [field('document', rule['document']), field('section', rule['section']),
+                      field('url', rule['url']), field('candidate_applicability', rule['applicability'])]
+            requirements = candidate['requirements'].get(manifest['language'], candidate['requirements'].get('ru', []))
+            story.append(p(t('candidate_conditions'), small))
+            story += [p(f'{number}. {value}') for number, value in enumerate(requirements, 1)]
+            limits = candidate['limitations'].get(manifest['language'], candidate['limitations'].get('ru'))
+            if limits:
+                story.append(field('candidate_limits', limits))
+            story.append(field('rule_limits', rule['limits']))
     section('human')
     if not manifest['human_annotations']:
         story.append(p(t('no_human') + ' ' + t('no_rule')))
@@ -448,7 +491,8 @@ def _render_pdf(path, manifest, images, passport_hash):
     document.build(story, onFirstPage=page, onLaterPages=page)
 
 
-def generate_report(job, output_dir, *, version_snapshot=None, rules=(), annotations=(), language='ru'):
+def generate_report(job, output_dir, *, version_snapshot=None, rules=(), annotations=(), language='ru',
+                    action_catalog=None, violation_catalog=None):
     """Render a stored done-job snapshot into report.pdf and canonical passport.json.
 
     Accepted metadata lives in review.metadata, versions in review.version_snapshot.
@@ -457,7 +501,8 @@ def generate_report(job, output_dir, *, version_snapshot=None, rules=(), annotat
     """
     if job.get('status') != 'done' or not isinstance(job.get('result'), dict):
         raise ValueError('Report requires a completed stored result')
-    manifest, images = _manifest(job, version_snapshot, rules, annotations, language)
+    manifest, images = _manifest(job, version_snapshot, rules, annotations, language,
+                                 action_catalog=action_catalog, violation_catalog=violation_catalog)
     raw = _canonical(manifest)
     passport_hash = sha256(raw).hexdigest()
     output_dir = Path(output_dir)

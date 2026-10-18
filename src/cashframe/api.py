@@ -247,7 +247,9 @@ def create_app(settings=None,analyzer=None):
     def compliance(job_id:str):
         job=get_job(job_id)
         with annotation_lock:records=read_annotations(settings.local,job_id)
-        return {'job_id':job_id,'events':event_compliance(job,read_json(ROOT/'config/rules.json')['rules'],records)}
+        return {'job_id':job_id,'events':event_compliance(job,read_json(ROOT/'config/rules.json')['rules'],records,
+                action_catalog=read_json(ROOT/'config/action-types.json'),
+                violation_catalog=read_json(ROOT/'config/violation-types.json'))}
 
     @app.get('/api/v1/jobs/{job_id}/objects',dependencies=[Depends(authorize)])
     def objects(job_id:str):
@@ -312,7 +314,9 @@ def create_app(settings=None,analyzer=None):
             if job['status']!='done':raise HTTPException(409,'Отчёт доступен после успешного завершения анализа.')
             try:
                 with annotation_lock:annotations=read_annotations(settings.local,job_id)
-                folder,integrity=report_files(job,jobs_dir/job_id,read_json(ROOT/'config/rules.json')['rules'],annotations,language=language)
+                folder,integrity=report_files(job,jobs_dir/job_id,read_json(ROOT/'config/rules.json')['rules'],annotations,language=language,
+                                             action_catalog=read_json(ROOT/'config/action-types.json'),
+                                             violation_catalog=read_json(ROOT/'config/violation-types.json'))
                 name='report.pdf' if kind=='pdf' else 'passport.json'
                 data=(folder/name).read_bytes()
             except (ValueError,KeyError,OSError):

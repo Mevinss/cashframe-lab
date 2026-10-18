@@ -1199,6 +1199,18 @@ export const translations={
     "en": "The observation overlaps multiple events; its link to a specific event is not established.",
     "kk": "Бақылау бірнеше оқиғамен қиылысады; нақты оқиғамен байланысы анықталмаған."
   },
+  "Источник для проверки": {
+    "en": "Reference for review",
+    "kk": "Тексеруге арналған дереккөз"
+  },
+  "Применимость не подтверждена": {
+    "en": "Applicability is unconfirmed",
+    "kk": "Қолданылуы расталмаған"
+  },
+  "Условия, которые нужно проверить": {
+    "en": "Conditions to verify",
+    "kk": "Тексерілуі қажет шарттар"
+  },
   "Действие подтверждено проверяющим; нормативное основание не установлено.": {
     "en": "The reviewer confirmed the action; regulatory grounds are not established.",
     "kk": "Әрекетті тексеруші растаған; нормативтік негіз анықталмаған."

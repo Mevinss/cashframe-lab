@@ -80,7 +80,8 @@ class Worker:
             if self.stopping.is_set():raise RuntimeError('service_stopping')
             if time.monotonic()-accepted_at>self.settings.deadline_sec:
                 raise TimeoutError('processing_deadline')
-            validated=CompletedResult(job_id=jid,**result).model_dump()
+            source_duration=self.store.get(jid)['duration_sec']
+            validated=CompletedResult.model_validate(dict(job_id=jid,**result),context={'duration_sec':source_duration}).model_dump()
             self.store.update(jid,status='done',stage='done',result=validated,review=review,
                               completed_at=time.time(),elapsed_sec=round(time.monotonic()-accepted_at,3))
             if not self.analyzer:self._prepare_preview(jid,path)

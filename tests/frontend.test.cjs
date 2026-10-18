@@ -87,6 +87,27 @@ test('confirmed compliance is matched to selected event and exposes its primary 
   const panel=a.nodes.get('rule-description');assert.match(text(panel),/Подтверждено проверяющим.*fixture observation.*Fixture rule.*fixture conditions.*fixture limits/);
   assert.equal(panel.children.find(item=>item.tagName==='A').href,'https://example.org/source');
 });
+
+test('candidate source stays separate from confirmed applicability with translated conditions',()=>{
+  const a=app();seed(a);
+  a.run(`state.compliance=[{event_id:'event-1',status:'unresolved',type:'leave_before_service_end',rule:null,candidate_rules:[{status:'candidate',applicability_status:'not_confirmed',rule:{title:'Fixture reference',document:'Fixture document',section:'22',url:'https://example.org/reference'},requirements:{ru:['Условие для проверки'],kk:['Тексеру шарты'],en:['Condition to verify']},limitations:{ru:'Ограничение источника',kk:'Дереккөз шектеуі',en:'Reference limitation'}}]}]`);
+  for(const [lang,condition] of [['ru','Условие для проверки'],['kk','Тексеру шарты'],['en','Condition to verify']]){
+    a.run(`setLanguage('${lang}');renderCompliance(0)`);const panel=a.nodes.get('rule-description');
+    assert.match(text(panel),/Fixture document/);assert.ok(text(panel).includes(condition));
+    assert.doesNotMatch(text(panel),/Подтверждено проверяющим|Confirmed by reviewer/);
+    function links(node){return [...(node.tagName==='A'?[node]:[]),...node.children.flatMap(links)];}
+    assert.equal(links(panel)[0].href,'https://example.org/reference');
+    assert.equal(links(panel)[0].rel,'noopener noreferrer');
+  }
+});
+
+test('invalid candidate link or association never becomes a normative source',()=>{
+  const a=app();seed(a);
+  for(const mutation of ["rule:{url:'javascript:alert(1)',document:'unsafe source'}","status:'confirmed',rule:{url:'https://example.org/not-a-candidate',document:'unsafe source'}"]){
+    a.run(`state.compliance=[{event_id:'event-1',status:'unresolved',rule:null,candidate_rules:[{status:'candidate',applicability_status:'not_confirmed',${mutation}}]}];renderCompliance(0)`);
+    assert.doesNotMatch(text(a.nodes.get('rule-description')),/unsafe source/);
+  }
+});
 test('saving annotation refreshes compliance without changing jury verdict',async()=>{
   const a=app();seed(a);a.run("state.selected=0;$('annotation-start').value=0;$('annotation-end').value=1;$('annotation-reviewer').value='Reviewer';$('annotation-type').value='action';$('annotation-fact').value='fact';$('annotation-visibility').value='clear';$('annotation-confirm').checked=true;$('annotation-applicability').checked=true;$('annotation-rule').value='rule';globalThis.paths=[];request=async(path,options)=>{paths.push(path);return new Response(JSON.stringify(path.endsWith('/annotations')?{annotations:[]}:{events:[]}));}");
   await a.nodes.get('annotation-form').listeners.submit({preventDefault(){}});assert.equal(a.run('paths.includes("/api/v1/jobs/fixture/compliance")'),true);assert.equal(a.run('state.result.verdict'),'violation');

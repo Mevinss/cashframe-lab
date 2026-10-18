@@ -35,6 +35,9 @@ input:not([type=file]):not([type=range]):not([type=checkbox]):hover,select:hover
 .secondary:hover:not(:disabled){background:#f4f7fa;border-color:#bdc9d8}
 .text-button{border:0;background:none;color:var(--accent);font-size:12px;padding:8px}
 .tabular{font-variant-numeric:tabular-nums}.muted{color:var(--muted);font-size:12px}
+.rule-candidate{border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
+.rule-candidate p{margin-bottom:8px}.rule-candidate details{margin-top:12px}
+.rule-candidate summary{cursor:pointer;font-weight:500}.rule-candidate ul{padding-left:20px}
 .eyebrow{display:flex;align-items:center;gap:8px;color:var(--accent);font-size:12px;font-weight:650;letter-spacing:.11em;text-transform:uppercase;line-height:1.6}
 .live-dot,.status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 /* Expanded desktop navigation; every existing toggle and destination is retained. */

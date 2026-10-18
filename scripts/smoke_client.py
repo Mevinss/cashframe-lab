@@ -4,24 +4,44 @@ import argparse
 import base64
 import io
 import json
-import os
 import time
 
 import httpx
 from PIL import Image
 
 
+def read_api_key(root, key_file=None):
+    """Match launcher configuration unless a key file is explicitly selected.
+
+    The client only reads existing credentials; it never creates or rotates them.
+    """
+    from cashframe.launcher import load_environment
+    if key_file is not None:
+        path = Path(key_file)
+    else:
+        configured = load_environment(Path(root))['CASHFRAME_API_KEY'].strip()
+        if configured:
+            return configured
+        path = Path(root) / 'local' / 'api-key.txt'
+    try:
+        key = path.read_text(encoding='utf-8-sig').strip()
+    except FileNotFoundError as exc:
+        raise ValueError('Provide CASHFRAME_API_KEY or an existing --key-file; the smoke client does not generate keys.') from exc
+    if not key:
+        raise ValueError('The selected API key file is empty. Set CASHFRAME_API_KEY or select a nonempty --key-file.')
+    return key
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('video',type=Path)
     parser.add_argument('--url',default='http://127.0.0.1:8000')
-    parser.add_argument('--key-file',type=Path,default=Path('local/api-key.txt'))
+    parser.add_argument('--key-file',type=Path,help='Explicit key file; otherwise use launcher environment and existing local/api-key.txt')
     parser.add_argument('--output',type=Path,default=Path('local/api-smoke.json'))
     args=parser.parse_args()
-    from cashframe.launcher import load_environment
     from cashframe.config import ROOT
-    key=os.getenv('CASHFRAME_API_KEY') or (args.key_file.read_text().strip() if args.key_file.exists() else load_environment(ROOT)['CASHFRAME_API_KEY'])
-    if not key:raise ValueError('Provide CASHFRAME_API_KEY or an existing --key-file')
+    try:key=read_api_key(ROOT,args.key_file)
+    except ValueError as error:parser.error(str(error))
     headers={'X-API-Key':key}
     start=time.perf_counter()
     with httpx.Client(base_url=args.url,timeout=60,trust_env=False) as client:

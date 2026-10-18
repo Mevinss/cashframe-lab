@@ -295,20 +295,41 @@ function renderProgress(progress,stage){
   else{bar.removeAttribute('value');bar.removeAttribute('aria-valuetext');detail.textContent=tr('Ожидаем измерения текущего этапа');}
 }
 async function loadCompliance(){state.compliance=[];try{const data=await(await request(`/api/v1/jobs/${state.jobId}/compliance`,{retries:0})).json();state.compliance=data.events||[];}catch{/* Optional metadata must not block the jury verdict. */}}
+function candidateCopy(value){return value?.[language()]??value?.ru??value?.en;}
+function renderCandidateRules(node,candidates){
+  let count=0;
+  for(const candidate of Array.isArray(candidates)?candidates:[]){
+    const rule=candidate?.rule;
+    if(candidate.status!=='candidate'||candidate.applicability_status!=='not_confirmed'||!/^https:\/\//i.test(rule?.url||''))continue;
+    const section=element('section','rule-candidate');
+    section.append(element('strong','',tr('Источник для проверки')),element('p','muted',tr('Применимость не подтверждена')));
+    section.append(element('p','',`${rule.document||rule.title||''}${rule.section?` · ${rule.section}`:''}`));
+    const link=element('a','',tr('Открыть первоисточник'));link.href=rule.url;link.target='_blank';link.rel='noopener noreferrer';section.append(link);
+    const requirements=candidateCopy(candidate.requirements),limits=candidateCopy(candidate.limitations);
+    if(Array.isArray(requirements)&&requirements.length){
+      const details=element('details'),list=element('ul');details.append(element('summary','',tr('Условия, которые нужно проверить')));
+      for(const requirement of requirements)if(typeof requirement==='string')list.append(element('li','',requirement));
+      details.append(list);if(typeof limits==='string'&&limits)details.append(element('p','',limits));section.append(details);
+    }
+    section.append(element('p','source-language',tr('Нормативные сведения приведены на языке источника.')));node.append(section);count++;
+  }
+  return count;
+}
 function renderCompliance(index){
   const node=$('rule-description');node.replaceChildren();
   const meta=reviewEvent(index),item=state.compliance.find(row=>row.event_id===(meta.event_id||meta.id||`event-${index+1}`));
   const status=item?.status||'unresolved';node.append(element('span',`badge ${status==='confirmed'?'low':'unspecified'}`,status==='confirmed'?tr('Подтверждено проверяющим'):status==='proposed'?(item.origin==='human'?tr('Предложено проверяющим'):tr('Предложено моделью')):tr('Основание не установлено')));
   if(item?.association_status==='ambiguous'){node.append(element('p','',tr('Наблюдение пересекает несколько событий; связь с конкретным событием не установлена.')));return;}
   if(item?.observed_fact)node.append(element('p','',item.observed_fact));
-  if(item?.type)node.append(element('p','',`${tr('Тип действия')}: ${item.type.startsWith('Визуальный сигнал')?tr('Тип действия не определён'):item.type}`));
+  if(item?.type){const category=item.candidate_rules?.find(candidate=>candidate.type_id===item.type);const label=candidateCopy(category?.type_labels)||item.type;node.append(element('p','',`${tr('Тип действия')}: ${item.type.startsWith('Визуальный сигнал')?tr('Тип действия не определён'):label}`));}
   const rule=item?.rule;
-  if(!rule){node.append(element('p','',item?.observation_status==='confirmed'?tr('Действие подтверждено проверяющим; нормативное основание не установлено.'):tr('Конкретное действие и условия применения нормы требуют подтверждения.')));return;}
+  if(!rule){if(!renderCandidateRules(node,item?.candidate_rules))node.append(element('p','',item?.observation_status==='confirmed'?tr('Действие подтверждено проверяющим; нормативное основание не установлено.'):tr('Конкретное действие и условия применения нормы требуют подтверждения.')));return;}
   node.append(element('strong','',rule.title),element('p','',`${rule.document}${rule.section?` · ${rule.section}`:''}`),element('p','source-language',tr('Нормативные сведения приведены на языке источника.')));
   if(/^https?:\/\//i.test(rule.url||'')){const link=element('a','',tr('Открыть первоисточник'));link.href=rule.url;link.target='_blank';link.rel='noopener noreferrer';node.append(link);}
   const details=element('dl');
   for(const [name,value] of [[tr('Связь с действием'),item.message?tr(item.message):null],[tr('Условия применимости'),rule.applicability],[tr('Ограничения'),rule.limits],[tr('Источник проверен'),localDate(rule.verified_on)],[tr('Проверяющий'),item.reviewer]])if(value){details.append(element('dt','',name),element('dd','',value));}
   node.append(details);
+  renderCandidateRules(node,item?.candidate_rules);
 }
 function localizedEventDescription(event,meta){
   if(meta.localization_status==='unresolved')return tr('Бинарный сигнал относится к видео целиком. Контекстные кадры не устанавливают момент события.');
