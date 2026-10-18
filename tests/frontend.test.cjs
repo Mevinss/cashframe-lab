@@ -17,13 +17,13 @@ function app({reducedMotion=false,pageHidden=false}={}){
     Object.defineProperty(n,'firstElementChild',{get(){return this.children[0];}});return n;
   }
   const document={hidden:pageHidden,listeners:{},addEventListener(type,callback){this.listeners[type]=callback;},getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node,body:node(),documentElement:node(),querySelectorAll(){return [];}};
-  const context=vm.createContext({document,Response,TextDecoder,AbortController,URL,FormData,console,setTimeout:(callback,delay)=>{if(delay===8000){const id=`carousel-${++timerId}`;carouselTimers.set(id,callback);return id;}return setTimeout(callback,delay);},clearTimeout:id=>{carouselTimers.delete(id);clearTimeout(id);},setInterval,clearInterval,
+  const context=vm.createContext({document,Response,TextDecoder,AbortController,URL,FormData,console,setTimeout:(callback,delay)=>{if(delay===8000||delay===5000){const id=`carousel-${++timerId}`;carouselTimers.set(id,{callback,delay});return id;}return setTimeout(callback,delay);},clearTimeout:id=>{carouselTimers.delete(id);clearTimeout(id);},setInterval,clearInterval,
     IntersectionObserver:class{constructor(callback){onIntersection=callback;}observe(){}},localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},matchMedia:()=>({matches:reducedMotion,addEventListener(){}}),fetch:async()=>new Response('{}')});
   const source=path=>fs.readFileSync(path,'utf8').replace(/^import[^\n]+\n/gm,'').replace(/\bexport /g,'');
   vm.runInContext(source('web/translations.js'),context);
   vm.runInContext(fs.readFileSync('web/i18n.ru.js','utf8').replace('export const ru','const sourceCopy'),context);
   vm.runInContext(source('web/i18n.js'),context);vm.runInContext(source('web/hero.js'),context);vm.runInContext(source('web/app.js'),context);
-  return {context,nodes,storage,carouselTimers,setBannerVisible(value){onIntersection([{isIntersecting:value}]);},advanceCarousel(){const entry=carouselTimers.entries().next().value;assert.ok(entry,'carousel should be scheduled');carouselTimers.delete(entry[0]);entry[1]();},run:code=>vm.runInContext(code,context)};
+  return {context,nodes,storage,carouselTimers,nextCarouselDelay(){return carouselTimers.values().next().value?.delay;},setBannerVisible(value){onIntersection([{isIntersecting:value}]);},advanceCarousel(){const entry=carouselTimers.entries().next().value;assert.ok(entry,'carousel should be scheduled');carouselTimers.delete(entry[0]);entry[1].callback();},run:code=>vm.runInContext(code,context)};
 }
 function text(node){return [node.textContent,...node.children.map(text)].join(' ');}
 const event=`{type:'Визуальный сигнал',timecode_sec:0,description:'unlocalized fixture',evidence_frames:[{timestamp_sec:0,image_base64:'synthetic-fixture'}]}`;
@@ -88,13 +88,14 @@ test('settings persist only language and theme, never an access key',async()=>{
   const a=app();a.nodes.get('api-key').value='sensitive-fixture-key';a.context.fetch=async()=>new Response(JSON.stringify({retention_hours:24,available:0,processing:0,done_with_signals:0,failed:0,average_processing_sec:null,recent:[],jobs:[]}));
   await a.nodes.get('access-form').listeners.submit({preventDefault(){}});a.run("setLanguage('en')");a.nodes.get('theme-toggle').listeners.click();assert.deepEqual([...a.storage.keys()].sort(),['videoaudit.language','videoaudit.theme']);assert.ok(![...a.storage.values()].includes('sensitive-fixture-key'));assert.equal(a.context.document.documentElement.dataset.theme,'dark');
 });
-test('decorative composition is bounded and keyboard reset works',()=>{
-  const a=app();a.run('moveFixture=boundedPosition(900,-900,360,280)');assert.equal(a.run('moveFixture.x'),55);assert.equal(a.run('moveFixture.y'),-32);
-  const object=a.nodes.get('hero-object');object.listeners.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(object.style['--drag-x'],'8px');object.listeners.keydown({key:'Home',preventDefault(){}});assert.equal(object.style['--drag-x'],'0px');
+test('sculpture stays static under pointer and keyboard input and has no tab stop',()=>{
+  const a=app(),object=a.context.document.getElementById('hero-object');
+  for(const type of ['pointerdown','pointermove','pointerup','keydown'])object.listeners[type]?.({button:0,pointerId:1,pointerType:'mouse',clientX:280,clientY:150,key:'ArrowRight',preventDefault(){}});
+  assert.equal(object.style['--drag-x'],undefined);assert.equal(object.style['--tilt-y'],undefined);
+  const html=fs.readFileSync('web/index.html','utf8'),sculpture=html.match(/<div id="hero-object"[^>]*>/)[0];
+  assert.doesNotMatch(sculpture,/tabindex|aria-describedby/);assert.doesNotMatch(html,/id="hero-reset"|id="hero-pause"/);
 });
-test('vertical touch movement stays available for page scrolling',()=>{
-  const a=app(),object=a.nodes.get('hero-object');object.listeners.pointerdown({button:0,pointerId:2,pointerType:'touch',clientX:100,clientY:100});object.listeners.pointermove({pointerId:2,pointerType:'touch',clientX:101,clientY:120});assert.equal(object.style['--drag-y'],'0px');
-});
+
 
 test('carousel cycles, wraps and exposes only the selected explanatory panel',()=>{
   const a=app();a.advanceCarousel();
@@ -106,23 +107,25 @@ test('carousel cycles, wraps and exposes only the selected explanatory panel',()
   a.nodes.get('hero-dot-1').listeners.click();assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
 });
 
-test('carousel pauses independently for interaction, navigation, hidden page and explicit pause',()=>{
-  const a=app(),banner=a.nodes.get('hero-carousel'),pause=a.nodes.get('hero-pause');
-  banner.listeners.pointerenter();assert.equal(a.carouselTimers.size,0);
-  banner.listeners.focusin();banner.listeners.pointerleave();assert.equal(a.carouselTimers.size,0);
-  banner.listeners.focusout({relatedTarget:null});assert.equal(a.carouselTimers.size,1);
-  pause.listeners.click();assert.equal(a.carouselTimers.size,0);assert.equal(pause.getAttribute('aria-pressed'),'true');
-  a.run("screen('processing');screen('overview')");assert.equal(a.carouselTimers.size,0);
-  pause.listeners.click();assert.equal(a.carouselTimers.size,1);
-  a.run("screen('result')");assert.equal(a.carouselTimers.size,0);a.run("screen('overview')");assert.equal(a.carouselTimers.size,1);
-  a.context.document.hidden=true;a.context.document.listeners.visibilitychange();assert.equal(a.carouselTimers.size,0);
-  a.context.document.hidden=false;a.context.document.listeners.visibilitychange();assert.equal(a.carouselTimers.size,1);
+test('carousel advances every five seconds even while hovered or focused',()=>{
+  const a=app(),banner=a.nodes.get('hero-carousel');assert.equal(a.nextCarouselDelay(),5000);
+  banner.listeners.pointerenter?.();banner.listeners.focusin?.();
+  assert.equal(a.carouselTimers.size,1);a.advanceCarousel();assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
+  assert.equal(a.nextCarouselDelay(),5000);a.advanceCarousel();assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
 });
 
-test('carousel keyboard arrows change panels while sculpture arrows only move the object',()=>{
-  const a=app(),controls=a.nodes.get('hero-carousel-controls'),object=a.nodes.get('hero-object');
+test('carousel suspends outside overview and resumes a fresh five second interval',()=>{
+  const a=app();a.run("screen('processing')");assert.equal(a.carouselTimers.size,0);
+  a.run("screen('result')");assert.equal(a.carouselTimers.size,0);
+  a.run("screen('overview')");assert.equal(a.carouselTimers.size,1);assert.equal(a.nextCarouselDelay(),5000);
+  a.advanceCarousel();assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
+});
+
+test('carousel keyboard controls change panels and retain Home and End navigation',()=>{
+  const a=app(),controls=a.nodes.get('hero-carousel-controls');
   controls.listeners.keydown({key:'ArrowLeft',preventDefault(){}});assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
-  object.listeners.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(object.style['--drag-x'],'8px');assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
+  controls.listeners.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(a.nodes.get('hero-dot-0').getAttribute('aria-current'),'true');
+  controls.listeners.keydown({key:'End',preventDefault(){}});assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
   controls.listeners.keydown({key:'Home',preventDefault(){}});assert.equal(a.nodes.get('hero-dot-0').getAttribute('aria-current'),'true');
 });
 
@@ -132,18 +135,13 @@ test('carousel does not start in a hidden page or continue outside the viewport'
   a.setBannerVisible(false);assert.equal(a.carouselTimers.size,0);a.setBannerVisible(true);assert.equal(a.carouselTimers.size,1);
 });
 
-test('reduced motion starts carousel paused and explicit playback remains available',()=>{
-  const a=app({reducedMotion:true});assert.equal(a.carouselTimers.size,0);
-  const pause=a.nodes.get('hero-pause');assert.equal(pause.getAttribute('aria-pressed'),'true');
-  pause.listeners.click();a.advanceCarousel();assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
-  for(const [lang,label] of [['en','Pause slides'],['kk','Слайдтарды кідірту'],['ru','Приостановить слайды']]){a.run(`setLanguage('${lang}');refreshLanguage()`);assert.equal(pause.getAttribute('aria-label'),label);}
+test('reduced motion retains automatic five second cycling and manual navigation',()=>{
+  const a=app({reducedMotion:true});assert.equal(a.carouselTimers.size,1);assert.equal(a.nextCarouselDelay(),5000);
+  a.advanceCarousel();assert.equal(a.nodes.get('hero-dot-1').getAttribute('aria-current'),'true');
+  a.nodes.get('hero-next').listeners.click();assert.equal(a.nodes.get('hero-dot-2').getAttribute('aria-current'),'true');
 });
 
-test('drag suspends carousel even after the pointer leaves the banner',()=>{
-  const a=app(),object=a.nodes.get('hero-object');object.listeners.pointerdown({button:0,pointerId:2,pointerType:'mouse',clientX:100,clientY:100});
-  a.nodes.get('hero-carousel').listeners.pointerleave();assert.equal(a.carouselTimers.size,0);
-  object.listeners.pointerup();assert.equal(a.carouselTimers.size,1);
-});
+
 
 test('optional action categories use the current locale without replacing a human action',async()=>{
   const a=app();a.context.document.getElementById('annotation-type').value='Reviewer supplied action';
@@ -191,9 +189,7 @@ test('a different event ID never supplies a rule and human proposals are attribu
   const a=app();seed(a);a.run("state.compliance=[{event_id:'unrelated',status:'confirmed',rule:{title:'Wrong rule'}}];renderCompliance(0)");assert.doesNotMatch(text(a.nodes.get('rule-description')),/Wrong rule|Подтверждено проверяющим/);
   a.run("state.compliance=[{event_id:'event-1',status:'proposed',origin:'human',rule:null}];renderCompliance(0)");assert.match(text(a.nodes.get('rule-description')),/Предложено проверяющим/);
 });
-test('reduced motion suppresses pointer tilt while keyboard movement remains available',()=>{
-  const a=app({reducedMotion:true}),object=a.nodes.get('hero-object');object.listeners.pointermove({pointerType:'mouse',clientX:230,clientY:120});assert.equal(object.style['--tilt-y'],'0deg');object.listeners.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(object.style['--drag-x'],'8px');
-});
+
 
 test('a confirmed human action remains confirmed without established legal grounds',()=>{
   const a=app();seed(a);a.run("state.compliance=[{event_id:'event-1',status:'unresolved',observation_status:'confirmed',origin:'human',observed_fact:'confirmed visible action',type:'fixture action',rule:null}]");

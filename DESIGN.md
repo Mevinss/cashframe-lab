@@ -20,9 +20,9 @@ The user's screenshots pin burgundy/magenta and cyan dimensional materials, supp
 
 ## Overview
 
-A large saturated banner pairs a short heading and stationary upload action with an original CSS 3D composition of a video viewer, reels and an evidence sheet. The object can be dragged inside bounds, nudged with arrow keys and reset with Home or the reset button. Pointer motion is restrained, vertical touch scrolling remains available and reduced motion is honored. Geometry has no pretend playback controls or model measurements.
+A large saturated banner pairs a naturally wrapping heading and stationary upload action with the approved CSS 3D composition of a video viewer, reels and an evidence sheet. The sculpture remains fixed in its approved pose, with no drag, pointer tilt, keyboard movement, reset action or tab stop. Vertical touch scrolling remains native. Geometry has no pretend playback controls or model measurements.
 
-Three short copy panels explain upload, local model signals and human review with PDF export. Only the copy slides; the approved burgundy/cyan sculpture and upload action stay stationary. Pagination, previous/next and a pause/resume button remain available. Rotation uses an eight-second reading interval and pauses independently during hover, focus, drag, a hidden page, an offscreen banner or any view other than overview. Reduced motion starts paused and removes slide movement; explicit playback remains available. Carousel arrows act only within its control group, while the sculpture retains its own arrow/Home controls. Drag instructions remain available to assistive technology without a visible caption.
+Three short copy panels explain upload, local model signals and human review with PDF export. Only the copy slides; the approved burgundy/cyan sculpture and upload action stay stationary. Pagination and previous/next remain available with arrow, Home and End keyboard navigation in the controls. Per the latest explicit user direction, rotation changes panels every five seconds throughout the visible overview, including during hover or focus. There is no pause control. Hidden pages, offscreen banners and views other than overview suspend the timer to avoid background work. Reduced motion retains the same five-second changes with instant transitions. Broader text columns and full localized heading phrases allow natural wrapping in Russian, Kazakh and English.
 
 ## Review workspace
 
@@ -40,4 +40,4 @@ Wide screens retain navigation and a two-column review workspace. Narrow screens
 
 ## Signature interaction and finish evidence
 
-Bounded drag/keyboard/reset on the overview's video sculpture. Evidence and controls remain stationary. Final synthetic captures and browser checks are saved under local/audit/sprint-final-* and sprint-browser-checks.json; source/DOM regressions are in tests/frontend.test.cjs.
+Five-second explanatory slides with keyboard navigation alongside a fixed decorative sculpture. Evidence and controls remain stationary. Final synthetic captures and browser checks are saved under local/audit/sprint-final-* and sprint-browser-checks.json; source/DOM regressions are in tests/frontend.test.cjs.

@@ -23,10 +23,20 @@ class StageReporter:
         self.path=Path(path);self.clock=clock;self.stage='accepted';self.last_write=None
 
     def _write(self,progress):
-        self.path.parent.mkdir(parents=True,exist_ok=True)
         temporary=self.path.with_suffix('.tmp')
-        temporary.write_text(json.dumps({'stage':self.stage,'progress':progress}),encoding='utf-8')
-        os.replace(temporary,self.path)
+        payload=json.dumps({'stage':self.stage,'progress':progress})
+        # Windows readers/antivirus can briefly deny replacing an open file.
+        # Progress is optional telemetry: retain the last atomic snapshot when
+        # locked, then let the next throttled update retry without aborting AI.
+        for attempt in range(3):
+            try:
+                self.path.parent.mkdir(parents=True,exist_ok=True)
+                temporary.write_text(payload,encoding='utf-8')
+                os.replace(temporary,self.path)
+                return True
+            except PermissionError:
+                if attempt<2:time.sleep(.005*(attempt+1))
+        return False
 
     def __call__(self,name):
         progress=validate_progress({'stage':name})

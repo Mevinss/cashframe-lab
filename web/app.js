@@ -1,5 +1,5 @@
 import {ru,tr,language,locale,hasTranslation,initPreferences} from './i18n.js';
-import {initHero,initHeroCarousel} from './hero.js';
+import {initHeroCarousel} from './hero.js';
 
 const $=id=>document.getElementById(id);
 const state={file:null,key:'',authorized:false,jobId:null,result:null,review:null,selected:null,blob:null,timer:null,generation:0,drafts:{},overview:null,compliance:[],currentView:'overview',progress:null,startedAt:null};
@@ -328,5 +328,4 @@ function refreshLanguage(){
 }
 initPreferences(refreshLanguage);
 heroCarousel=initHeroCarousel();
-initHero({onDragChange:value=>heroCarousel?.block('drag',value)});
 renderLockedMetrics();

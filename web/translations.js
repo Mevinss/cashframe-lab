@@ -1,4 +1,7 @@
 export const translations={
+  "От видео к фактам": {"en":"From video to evidence","kk":"Бейнеден фактілерге"},
+  "Анализ на месте": {"en":"Analysis on site","kk":"Осы жерде талдау"},
+  "Проверьте и сохраните": {"en":"Review and save","kk":"Тексеріп сақтаңыз"},
   "карусель": {"en":"carousel","kk":"карусель"},
   "слайд": {"en":"slide","kk":"слайд"},
   "Как работает видеоаудит": {"en":"How video audit works","kk":"Бейнеаудит қалай жұмыс істейді"},

@@ -28,7 +28,7 @@ Source videos remain local. No cloud video AI, facial identification or generate
 
 ## Brand Commitments
 
-User-provided screenshots pin burgundy/magenta, bright cyan, white/gray surfaces and dimensional materials. Keep the large overview banner with a fixed upload action and bounded draggable video composition. The latest approved brief removes CashFrame, Datathon and the camera glyph from visible UI; the functional title is localized Video audit. Decorative geometry has no fake playback controls or analytical claims.
+User-provided screenshots pin burgundy/magenta, bright cyan, white/gray surfaces and dimensional materials. Keep the large overview banner with a fixed upload action and static video composition. Copy slides change every five seconds on the visible overview; there are arrows and dots, without reset or pause controls. Headings wrap naturally across the wider copy column. The latest approved brief removes CashFrame, Datathon and the camera glyph from visible UI; the functional title is localized Video audit. Decorative geometry has no fake playback controls or analytical claims.
 
 ## Evidence on Hand
 
@@ -40,4 +40,4 @@ Lead with video and evidence. Preserve source timestamps. Explain unknowns. Sepa
 
 ## Accessibility & Inclusion
 
-Visible keyboard focus, labeled inputs, text accompanying status colors, readable contrast, full ru/kk/en catalogs, keyboard-controlled composition and reduced-motion support.
+Visible keyboard focus, labeled inputs, text accompanying status colors, readable contrast, full ru/kk/en catalogs and keyboard-controlled slide navigation. Reduced motion removes spatial transitions while retaining the requested five-second slide changes.
